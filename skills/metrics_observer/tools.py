@@ -5,14 +5,16 @@ MCP tools (query, query_range, etc.) are provided by the VictoriaMetrics MCP ser
 
 import json
 import re
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from core.tool_registry import tool
 
 
-def collect_context(user_request: str) -> str:
-    """
-    Parse the user request and extract relevant context for metrics analysis.
-    Returns structured context with identified fields and any missing information.
-    """
+@tool("Parse user request and extract context for metrics analysis (service, time window, metric patterns)")
+def collect_context(
+    user_request: Annotated[str, "The user's request text to analyze"],
+) -> str:
+    """Parse the user request and extract relevant context for metrics analysis."""
     context: dict[str, Any] = {
         "original_request": user_request,
         "service": None,
@@ -101,15 +103,13 @@ def collect_context(user_request: str) -> str:
     return json.dumps(context, ensure_ascii=False, indent=2)
 
 
+@tool("Generate PromQL query suggestions for common metric types")
 def build_promql_suggestions(
-    service: str = "",
-    metric_type: str = "http",
-    time_window: str = "5m",
+    service: Annotated[str, "Service name to query metrics for"],
+    metric_type: Annotated[Literal["http", "cpu", "memory", "error"], "Type of metrics"] = "http",
+    time_window: Annotated[str, "Time window for rate calculations (e.g., 5m, 1h)"] = "5m",
 ) -> str:
-    """
-    Generate PromQL query suggestions based on service and metric type.
-    Helps users construct valid queries for VictoriaMetrics.
-    """
+    """Generate PromQL query suggestions based on service and metric type."""
     suggestions: dict[str, list[dict[str, str]]] = {
         "http": [
             {
@@ -189,15 +189,14 @@ def build_promql_suggestions(
     )
 
 
+@tool("Format metrics analysis results into a structured report")
 def format_metrics_report(
-    service: str,
-    metrics_data: dict[str, Any],
-    conclusion: str = "healthy",
-    next_action: str = "",
+    service: Annotated[str, "Service name being analyzed"],
+    metrics_data: Annotated[dict, "Metrics data with values, environment, and time_window"],
+    conclusion: Annotated[Literal["healthy", "degraded", "critical"], "Health conclusion"] = "healthy",
+    next_action: Annotated[str, "Recommended next action"] = "",
 ) -> str:
-    """
-    Format metrics analysis results into a structured report.
-    """
+    """Format metrics analysis results into a structured report."""
     report = {
         "scope": {
             "service": service,
@@ -219,74 +218,3 @@ def format_metrics_report(
         })
 
     return json.dumps(report, ensure_ascii=False, indent=2)
-
-
-TOOLS = [
-    {
-        "name": "collect_context",
-        "function_name": "collect_context",
-        "description": "Parse user request and extract context for metrics analysis (service, time window, metric patterns)",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_request": {
-                    "type": "string",
-                    "description": "The user's request text to analyze",
-                },
-            },
-            "required": ["user_request"],
-        },
-    },
-    {
-        "name": "build_promql_suggestions",
-        "function_name": "build_promql_suggestions",
-        "description": "Generate PromQL query suggestions for common metric types",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "service": {
-                    "type": "string",
-                    "description": "Service name to query metrics for",
-                },
-                "metric_type": {
-                    "type": "string",
-                    "description": "Type of metrics: http, cpu, memory, error",
-                    "enum": ["http", "cpu", "memory", "error"],
-                },
-                "time_window": {
-                    "type": "string",
-                    "description": "Time window for rate calculations (e.g., 5m, 1h)",
-                },
-            },
-            "required": ["service"],
-        },
-    },
-    {
-        "name": "format_metrics_report",
-        "function_name": "format_metrics_report",
-        "description": "Format metrics analysis results into a structured report",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "service": {
-                    "type": "string",
-                    "description": "Service name being analyzed",
-                },
-                "metrics_data": {
-                    "type": "object",
-                    "description": "Metrics data with values, environment, and time_window",
-                },
-                "conclusion": {
-                    "type": "string",
-                    "description": "Health conclusion: healthy, degraded, or critical",
-                    "enum": ["healthy", "degraded", "critical"],
-                },
-                "next_action": {
-                    "type": "string",
-                    "description": "Recommended next action",
-                },
-            },
-            "required": ["service", "metrics_data"],
-        },
-    },
-]

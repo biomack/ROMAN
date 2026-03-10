@@ -5,7 +5,9 @@ import shutil
 import socket
 import subprocess
 import time
-from typing import List, Optional
+from typing import Annotated, Optional
+
+from core.tool_registry import tool
 
 
 DEFAULT_COMMON_PORTS = [
@@ -14,7 +16,7 @@ DEFAULT_COMMON_PORTS = [
 ]
 
 
-def _run_command(args: List[str], timeout: int = 20) -> dict:
+def _run_command(args: list[str], timeout: int = 20) -> dict:
     try:
         proc = subprocess.run(
             args,
@@ -64,7 +66,12 @@ def _parse_ping_latency_ms(output: str) -> Optional[float]:
     return None
 
 
-def ping_host(host: str, count: int = 4, timeout_seconds: int = 3) -> str:
+@tool("Ping a host and return reachability and latency")
+def ping_host(
+    host: Annotated[str, "Hostname or IP address"],
+    count: Annotated[int, "Number of ping packets"] = 4,
+    timeout_seconds: Annotated[int, "Per-packet timeout in seconds"] = 3,
+) -> str:
     system = platform.system().lower()
     if system == "windows":
         args = ["ping", "-n", str(count), "-w", str(timeout_seconds * 1000), host]
@@ -85,7 +92,11 @@ def ping_host(host: str, count: int = 4, timeout_seconds: int = 3) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-def traceroute_host(host: str, max_hops: int = 20) -> str:
+@tool("Run traceroute/tracert to inspect path to host")
+def traceroute_host(
+    host: Annotated[str, "Hostname or IP address"],
+    max_hops: Annotated[int, "Maximum route hops"] = 20,
+) -> str:
     system = platform.system().lower()
     if system == "windows":
         args = ["tracert", "-d", "-h", str(max_hops), host]
@@ -108,12 +119,13 @@ def traceroute_host(host: str, max_hops: int = 20) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
+@tool("Check SSH TCP connectivity and optional login probe")
 def test_ssh_connection(
-    host: str,
-    port: int = 22,
-    username: str = "",
-    timeout_seconds: int = 5,
-    run_login_probe: bool = False,
+    host: Annotated[str, "Hostname or IP address"],
+    port: Annotated[int, "SSH port (default 22)"] = 22,
+    username: Annotated[str, "Optional SSH username for probe"] = "",
+    timeout_seconds: Annotated[int, "Connect timeout in seconds"] = 5,
+    run_login_probe: Annotated[bool, "Run ssh command for auth probe"] = False,
 ) -> str:
     tcp_open = False
     tcp_latency_ms = None
@@ -167,7 +179,12 @@ def test_ssh_connection(
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-def scan_common_ports(host: str, timeout_seconds: float = 0.8, ports: Optional[List[int]] = None) -> str:
+@tool("Scan common TCP ports and return open ones")
+def scan_common_ports(
+    host: Annotated[str, "Hostname or IP address"],
+    timeout_seconds: Annotated[float, "TCP connect timeout per port"] = 0.8,
+    ports: Annotated[list[int], "Optional custom list of ports to scan"] = None,
+) -> str:
     if ports is None:
         ports = DEFAULT_COMMON_PORTS
 
@@ -202,11 +219,12 @@ def scan_common_ports(host: str, timeout_seconds: float = 0.8, ports: Optional[L
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
+@tool("Run full diagnostics and return UP/PARTIAL/DOWN verdict")
 def analyze_server_availability(
-    host: str,
-    ssh_port: int = 22,
-    ping_count: int = 3,
-    traceroute_max_hops: int = 20,
+    host: Annotated[str, "Hostname or IP address"],
+    ssh_port: Annotated[int, "SSH port to test"] = 22,
+    ping_count: Annotated[int, "Ping packet count"] = 3,
+    traceroute_max_hops: Annotated[int, "Max hops for traceroute"] = 20,
 ) -> str:
     ping_result = json.loads(ping_host(host=host, count=ping_count))
     trace_result = json.loads(traceroute_host(host=host, max_hops=traceroute_max_hops))
@@ -245,83 +263,3 @@ def analyze_server_availability(
         },
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
-
-
-TOOLS = [
-    {
-        "name": "ping_host",
-        "function_name": "ping_host",
-        "description": "Ping a host and return reachability and latency",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "host": {"type": "string", "description": "Hostname or IP address"},
-                "count": {"type": "integer", "description": "Number of ping packets"},
-                "timeout_seconds": {"type": "integer", "description": "Per-packet timeout in seconds"},
-            },
-            "required": ["host"],
-        },
-    },
-    {
-        "name": "traceroute_host",
-        "function_name": "traceroute_host",
-        "description": "Run traceroute/tracert to inspect path to host",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "host": {"type": "string", "description": "Hostname or IP address"},
-                "max_hops": {"type": "integer", "description": "Maximum route hops"},
-            },
-            "required": ["host"],
-        },
-    },
-    {
-        "name": "test_ssh_connection",
-        "function_name": "test_ssh_connection",
-        "description": "Check SSH TCP connectivity and optional login probe",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "host": {"type": "string", "description": "Hostname or IP address"},
-                "port": {"type": "integer", "description": "SSH port (default 22)"},
-                "username": {"type": "string", "description": "Optional SSH username for probe"},
-                "timeout_seconds": {"type": "integer", "description": "Connect timeout in seconds"},
-                "run_login_probe": {"type": "boolean", "description": "Run ssh command for auth probe"},
-            },
-            "required": ["host"],
-        },
-    },
-    {
-        "name": "scan_common_ports",
-        "function_name": "scan_common_ports",
-        "description": "Scan common TCP ports and return open ones",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "host": {"type": "string", "description": "Hostname or IP address"},
-                "timeout_seconds": {"type": "number", "description": "TCP connect timeout per port"},
-                "ports": {
-                    "type": "array",
-                    "items": {"type": "integer"},
-                    "description": "Optional custom list of ports to scan",
-                },
-            },
-            "required": ["host"],
-        },
-    },
-    {
-        "name": "analyze_server_availability",
-        "function_name": "analyze_server_availability",
-        "description": "Run full diagnostics and return UP/PARTIAL/DOWN verdict",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "host": {"type": "string", "description": "Hostname or IP address"},
-                "ssh_port": {"type": "integer", "description": "SSH port to test"},
-                "ping_count": {"type": "integer", "description": "Ping packet count"},
-                "traceroute_max_hops": {"type": "integer", "description": "Max hops for traceroute"},
-            },
-            "required": ["host"],
-        },
-    },
-]

@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 from .mcp_bridge import MCPBridge, MCPBridgeManager
 from .config import Config, MCPServerConfig
+from .tool_registry import discover_tools
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,19 @@ class SkillManager:
         )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+
+        decorated = discover_tools(module)
+        if decorated:
+            return [
+                SkillTool(
+                    name=td["name"],
+                    description=td["description"],
+                    parameters=td["parameters"],
+                    function=td["function"],
+                    tool_type="python",
+                )
+                for td in decorated
+            ]
 
         results: list[SkillTool] = []
         for tool_def in getattr(module, "TOOLS", []):

@@ -11,14 +11,16 @@ import socket
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any
+
+from core.tool_registry import tool
 
 
 NODE_EXPORTER_PORT = 9100
 PLAYBOOK_PATH = Path(__file__).parent / "templates" / "install_node_exporter.yml"
 
 
-def _run_command(args: List[str], timeout: int = 30, env: Optional[dict] = None) -> dict:
+def _run_command(args: list[str], timeout: int = 30, env: dict | None = None) -> dict:
     merged_env = {**os.environ, **(env or {})}
     try:
         proc = subprocess.run(
@@ -54,12 +56,12 @@ def _run_command(args: List[str], timeout: int = 30, env: Optional[dict] = None)
         }
 
 
-def collect_context(user_request: str) -> str:
-    """
-    Parse user message and extract target servers, login, and password.
-    Returns JSON with extracted fields and a list of missing_fields.
-    """
-    context: Dict[str, Any] = {
+@tool("Parse user message and extract target servers, login, password for Node Exporter installation")
+def collect_context(
+    user_request: Annotated[str, "The user's request text to analyze"],
+) -> str:
+    """Parse user message and extract target servers, login, and password."""
+    context: dict[str, Any] = {
         "original_request": user_request,
         "servers": [],
         "login": None,
@@ -106,12 +108,13 @@ def collect_context(user_request: str) -> str:
     return json.dumps(context, ensure_ascii=False, indent=2)
 
 
-def check_node_exporter(host: str, port: int = NODE_EXPORTER_PORT, timeout_seconds: int = 5) -> str:
-    """
-    Check if Node Exporter is already running on the target host by
-    attempting a TCP connection to the metrics port (default 9100) and
-    optionally fetching /metrics via curl.
-    """
+@tool("Check if Node Exporter is already running on a server (curl to port 9100)")
+def check_node_exporter(
+    host: Annotated[str, "Server IP address or hostname"],
+    port: Annotated[int, "Node Exporter port (default 9100)"] = NODE_EXPORTER_PORT,
+    timeout_seconds: Annotated[int, "Connection timeout in seconds"] = 5,
+) -> str:
+    """Check if Node Exporter is already running on the target host."""
     running = False
     metrics_snippet = ""
     error = ""
@@ -141,18 +144,15 @@ def check_node_exporter(host: str, port: int = NODE_EXPORTER_PORT, timeout_secon
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
+@tool("Verify server is reachable via SSH TCP and/or ping")
 def check_server_reachable(
-    host: str,
-    login: str = "",
-    password: str = "",
-    port: int = 22,
-    timeout_seconds: int = 5,
+    host: Annotated[str, "Server IP address or hostname"],
+    login: Annotated[str, "SSH username"] = "",
+    password: Annotated[str, "SSH password"] = "",
+    port: Annotated[int, "SSH port (default 22)"] = 22,
+    timeout_seconds: Annotated[int, "Connection timeout in seconds"] = 5,
 ) -> str:
-    """
-    Verify that the server is reachable via SSH TCP connection.
-    Does not attempt full authentication — only checks TCP socket.
-    Also tries ICMP ping as a secondary signal.
-    """
+    """Verify that the server is reachable via SSH TCP connection and ping."""
     tcp_open = False
     tcp_error = ""
     ping_ok = False
@@ -185,17 +185,15 @@ def check_server_reachable(
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
+@tool("Run Ansible playbook to install Node Exporter on target servers")
 def run_ansible_install(
-    servers: List[str],
-    login: str,
-    password: str,
-    ssh_port: int = 22,
-    node_exporter_version: str = "1.8.2",
+    servers: Annotated[list[str], "List of server IPs or hostnames to install on"],
+    login: Annotated[str, "SSH username for all servers"],
+    password: Annotated[str, "SSH password for all servers"],
+    ssh_port: Annotated[int, "SSH port (default 22)"] = 22,
+    node_exporter_version: Annotated[str, "Node Exporter version to install (default 1.8.2)"] = "1.8.2",
 ) -> str:
-    """
-    Generate a temporary Ansible inventory from the provided server list and
-    credentials, then execute the Node Exporter installation playbook.
-    """
+    """Generate a temporary Ansible inventory and run the Node Exporter playbook."""
     if not shutil.which("ansible-playbook"):
         return json.dumps({
             "ok": False,
@@ -258,11 +256,13 @@ def run_ansible_install(
             _shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def verify_installation(host: str, port: int = NODE_EXPORTER_PORT, timeout_seconds: int = 10) -> str:
-    """
-    Post-install verification: check that Node Exporter responds on the expected port
-    and returns valid Prometheus metrics.
-    """
+@tool("Post-install verification: check Node Exporter responds with valid metrics")
+def verify_installation(
+    host: Annotated[str, "Server IP address or hostname"],
+    port: Annotated[int, "Node Exporter port (default 9100)"] = NODE_EXPORTER_PORT,
+    timeout_seconds: Annotated[int, "Connection timeout in seconds"] = 10,
+) -> str:
+    """Check that Node Exporter responds on the expected port with valid metrics."""
     running = False
     healthy = False
     error = ""
@@ -297,131 +297,3 @@ def verify_installation(host: str, port: int = NODE_EXPORTER_PORT, timeout_secon
         "error": error,
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
-
-
-TOOLS = [
-    {
-        "name": "collect_context",
-        "function_name": "collect_context",
-        "description": "Parse user message and extract target servers, login, password for Node Exporter installation",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_request": {
-                    "type": "string",
-                    "description": "The user's request text to analyze",
-                },
-            },
-            "required": ["user_request"],
-        },
-    },
-    {
-        "name": "check_node_exporter",
-        "function_name": "check_node_exporter",
-        "description": "Check if Node Exporter is already running on a server (curl to port 9100)",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "host": {
-                    "type": "string",
-                    "description": "Server IP address or hostname",
-                },
-                "port": {
-                    "type": "integer",
-                    "description": "Node Exporter port (default 9100)",
-                },
-                "timeout_seconds": {
-                    "type": "integer",
-                    "description": "Connection timeout in seconds",
-                },
-            },
-            "required": ["host"],
-        },
-    },
-    {
-        "name": "check_server_reachable",
-        "function_name": "check_server_reachable",
-        "description": "Verify server is reachable via SSH TCP and/or ping",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "host": {
-                    "type": "string",
-                    "description": "Server IP address or hostname",
-                },
-                "login": {
-                    "type": "string",
-                    "description": "SSH username",
-                },
-                "password": {
-                    "type": "string",
-                    "description": "SSH password",
-                },
-                "port": {
-                    "type": "integer",
-                    "description": "SSH port (default 22)",
-                },
-                "timeout_seconds": {
-                    "type": "integer",
-                    "description": "Connection timeout in seconds",
-                },
-            },
-            "required": ["host"],
-        },
-    },
-    {
-        "name": "run_ansible_install",
-        "function_name": "run_ansible_install",
-        "description": "Run Ansible playbook to install Node Exporter on target servers",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "servers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of server IPs or hostnames to install on",
-                },
-                "login": {
-                    "type": "string",
-                    "description": "SSH username for all servers",
-                },
-                "password": {
-                    "type": "string",
-                    "description": "SSH password for all servers",
-                },
-                "ssh_port": {
-                    "type": "integer",
-                    "description": "SSH port (default 22)",
-                },
-                "node_exporter_version": {
-                    "type": "string",
-                    "description": "Node Exporter version to install (default 1.8.2)",
-                },
-            },
-            "required": ["servers", "login", "password"],
-        },
-    },
-    {
-        "name": "verify_installation",
-        "function_name": "verify_installation",
-        "description": "Post-install verification: check Node Exporter responds with valid metrics",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "host": {
-                    "type": "string",
-                    "description": "Server IP address or hostname",
-                },
-                "port": {
-                    "type": "integer",
-                    "description": "Node Exporter port (default 9100)",
-                },
-                "timeout_seconds": {
-                    "type": "integer",
-                    "description": "Connection timeout in seconds",
-                },
-            },
-            "required": ["host"],
-        },
-    },
-]
