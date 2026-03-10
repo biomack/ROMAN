@@ -33,6 +33,23 @@ class MCPServerConfig:
 
 
 @dataclass
+class MattermostConfig:
+    url: str
+    token: str
+    team: str
+    channel: str
+
+    @classmethod
+    def from_env(cls) -> "MattermostConfig":
+        return cls(
+            url=os.getenv("MATTERMOST_URL", "").strip(),
+            token=os.getenv("MATTERMOST_TOKEN", "").strip(),
+            team=os.getenv("MATTERMOST_TEAM", "").strip(),
+            channel=os.getenv("MATTERMOST_CHANNEL", "").strip(),
+        )
+
+
+@dataclass
 class Config:
     provider: str
     ollama_base_url: str
@@ -47,6 +64,7 @@ class Config:
     reference_file_max_bytes: int
     reference_files_total_max_bytes: int
     mcp_servers: dict[str, MCPServerConfig]
+    mattermost: MattermostConfig
 
     @classmethod
     def load(cls) -> "Config":
@@ -85,4 +103,5 @@ class Config:
                 os.getenv("REFERENCE_FILES_TOTAL_MAX_BYTES", "262144")
             ),
             mcp_servers=mcp_servers,
+            mattermost=MattermostConfig.from_env(),
         )

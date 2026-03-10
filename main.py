@@ -6,11 +6,12 @@ Settings are loaded from .env (see .env for all options).
 CLI flags override .env values.
 
 Usage:
-    python main.py                                        # uses .env defaults
+    python main.py                                        # interactive CLI (default)
+    python main.py --mode bot                             # Mattermost bot mode
     python main.py --provider ollama --model llama3.1     # override via CLI
     python main.py --provider openai --url http://localhost:1234/v1
 
-Commands inside chat:
+Commands inside chat (CLI mode only):
     /skills     — list all available skills and their status
     /load NAME  — manually load a skill
     /reset      — clear conversation history
@@ -29,7 +30,7 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 
-from core import Config, SkillManager, Agent, create_client
+from core import Config, SkillManager, Agent, MattermostBot, create_client
 
 LOG_FILE = Path(__file__).parent / "agent_debug.log"
 
@@ -92,6 +93,22 @@ def parse_args(cfg: Config):
         action="store_true",
         help="Generate a new session id for each CLI launch",
     )
+    parser.add_argument(
+        "--mode",
+        choices=["cli", "bot"],
+        default="cli",
+        help="Run mode: 'cli' for interactive terminal, 'bot' for Mattermost bot",
+    )
+    parser.add_argument(
+        "--mm-token",
+        default=None,
+        help="Mattermost token (overrides MATTERMOST_TOKEN from .env)",
+    )
+    parser.add_argument(
+        "--mm-channel",
+        default=None,
+        help="Mattermost channel name (overrides MATTERMOST_CHANNEL from .env)",
+    )
     return parser.parse_args()
 
 
@@ -125,10 +142,8 @@ def show_help():
     console.print(Panel(help_text, title="Help", border_style="blue"))
 
 
-def main():
-    cfg = Config.load()
-    args = parse_args(cfg)
-
+def _build_agent(cfg: Config, args) -> tuple[Agent, str, str, str]:
+    """Create Agent from config + CLI args. Returns (agent, provider, model, base_url)."""
     provider = args.provider
 
     if provider == "ollama":
@@ -149,6 +164,75 @@ def main():
         openai_api_key=api_key,
     )
 
+    if not client.is_available():
+        console.print(f"[bold red]Error:[/] Cannot connect to {base_url}")
+        sys.exit(1)
+
+    models = client.list_models()
+    if models and model not in models:
+        console.print(f"[bold yellow]Warning:[/] Model '{model}' not found on server.")
+        console.print(f"Available: {', '.join(models[:15])}")
+
+    skill_manager = SkillManager(skills_dir=args.skills_dir, mcp_servers=cfg.mcp_servers)
+    agent = Agent(client=client, skill_manager=skill_manager)
+    return agent, provider, model, base_url
+
+
+def run_bot(cfg: Config, args):
+    """Start the agent as a Mattermost bot."""
+    agent, provider, model, base_url = _build_agent(cfg, args)
+
+    mm_token = args.mm_token or cfg.mattermost.token
+    mm_channel = args.mm_channel or cfg.mattermost.channel
+    mm_url = cfg.mattermost.url
+    mm_team = cfg.mattermost.team
+
+    if not mm_token:
+        console.print(
+            "[bold red]Error:[/] MATTERMOST_TOKEN is required. "
+            "Set it in .env or pass via --mm-token."
+        )
+        sys.exit(1)
+
+    if not mm_url or not mm_team or not mm_channel:
+        console.print(
+            "[bold red]Error:[/] MATTERMOST_URL, MATTERMOST_TEAM, and "
+            "MATTERMOST_CHANNEL must be set in .env."
+        )
+        sys.exit(1)
+
+    console.print(Panel(
+        f"[bold]Agent Skills[/] — Mattermost bot\n"
+        f"Provider: [cyan]{provider}[/]  |  Model: [cyan]{model}[/]\n"
+        f"Server:   [cyan]{base_url}[/]\n"
+        f"Channel:  [cyan]{mm_team}/{mm_channel}[/] @ {mm_url}",
+        title="Mattermost Bot",
+        border_style="bright_green",
+    ))
+
+    console.print(
+        f"Discovered [bold green]{len(agent.skills.skills)}[/] skills: "
+        f"{', '.join(agent.skills.get_skill_names())}\n"
+    )
+    console.print("Bot is running. Press Ctrl+C to stop.\n")
+
+    bot = MattermostBot(
+        agent,
+        url=mm_url,
+        token=mm_token,
+        team=mm_team,
+        channel=mm_channel,
+    )
+    bot.run()
+
+
+def run_cli(cfg: Config, args):
+    """Start the interactive CLI chat."""
+    agent, provider, model, base_url = _build_agent(cfg, args)
+
+    session_id = f"cli-{uuid.uuid4().hex[:8]}" if args.new_session_per_run else args.session_id
+    skill_manager = agent.skills
+
     console.print(Panel(
         f"[bold]Agent Skills[/] — AI agent\n"
         f"Provider: [cyan]{provider}[/]  |  Model: [cyan]{model}[/]\n"
@@ -156,27 +240,6 @@ def main():
         title="Skills Agent",
         border_style="bright_blue",
     ))
-
-    if not client.is_available():
-        console.print(f"[bold red]Error:[/] Cannot connect to {base_url}")
-        if provider == "ollama":
-            console.print("Make sure Ollama is running: [cyan]ollama serve[/]")
-        else:
-            console.print("Make sure LM Studio server is started (or check your URL).")
-        sys.exit(1)
-
-    models = client.list_models()
-    if models and model not in models:
-        console.print(f"[bold yellow]Warning:[/] Model '{model}' not found on server.")
-        console.print(f"Available: {', '.join(models[:15])}")
-        if provider == "ollama":
-            console.print(f"Pull it: [cyan]ollama pull {model}[/]")
-        else:
-            console.print("Check model name in LM Studio or your provider dashboard.")
-
-    skill_manager = SkillManager(skills_dir=args.skills_dir, mcp_servers=cfg.mcp_servers)
-    agent = Agent(client=client, skill_manager=skill_manager)
-    session_id = f"cli-{uuid.uuid4().hex[:8]}" if args.new_session_per_run else args.session_id
 
     console.print(f"\nDiscovered [bold green]{len(skill_manager.skills)}[/] skills: "
                   f"{', '.join(skill_manager.get_skill_names())}")
@@ -238,6 +301,16 @@ def main():
         except Exception:
             console.print(response)
         console.print()
+
+
+def main():
+    cfg = Config.load()
+    args = parse_args(cfg)
+
+    if args.mode == "bot":
+        run_bot(cfg, args)
+    else:
+        run_cli(cfg, args)
 
 
 if __name__ == "__main__":
