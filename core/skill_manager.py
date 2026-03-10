@@ -157,7 +157,7 @@ class SkillManager:
     def _load_references(self, skill_path: Path) -> dict[str, str]:
         references: dict[str, str] = {}
         total_bytes = 0
-        for folder_name in ("resources", "templates"):
+        for folder_name in ("resources", "references", "templates", "assets"):
             folder = skill_path / folder_name
             if not folder.exists() or not folder.is_dir():
                 continue

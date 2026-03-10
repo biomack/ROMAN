@@ -17,7 +17,7 @@ from core.tool_registry import tool
 
 
 NODE_EXPORTER_PORT = 9100
-PLAYBOOK_PATH = Path(__file__).parent / "templates" / "install_node_exporter.yml"
+PLAYBOOK_PATH = Path(__file__).parent / "assets" / "install_node_exporter.yml"
 
 
 def _run_command(args: list[str], timeout: int = 30, env: dict | None = None) -> dict:
