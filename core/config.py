@@ -38,6 +38,7 @@ class MattermostConfig:
     token: str
     team: str
     channel: str
+    bot_name: str
 
     @classmethod
     def from_env(cls) -> "MattermostConfig":
@@ -46,6 +47,7 @@ class MattermostConfig:
             token=os.getenv("MATTERMOST_TOKEN", "").strip(),
             team=os.getenv("MATTERMOST_TEAM", "").strip(),
             channel=os.getenv("MATTERMOST_CHANNEL", "").strip(),
+            bot_name=os.getenv("MATTERMOST_BOT_NAME", "").strip(),
         )
 
 

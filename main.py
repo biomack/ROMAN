@@ -186,6 +186,7 @@ def run_bot(cfg: Config, args):
     mm_channel = args.mm_channel or cfg.mattermost.channel
     mm_url = cfg.mattermost.url
     mm_team = cfg.mattermost.team
+    mm_bot_name = cfg.mattermost.bot_name
 
     if not mm_token:
         console.print(
@@ -222,6 +223,7 @@ def run_bot(cfg: Config, args):
         token=mm_token,
         team=mm_team,
         channel=mm_channel,
+        bot_name=mm_bot_name,
     )
     bot.run()
 

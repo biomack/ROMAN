@@ -96,3 +96,17 @@ docker compose up -d
 - `LLM_PROVIDER`, `OPENAI_BASE_URL`, `OLLAMA_BASE_URL`, ...
 - `SESSION_TTL_SECONDS`, `SESSION_MAX_MESSAGES`
 - `MCP_SERVERS` — список MCP-серверов для подключения
+
+mattermost bot
+# Установить новые зависимости
+pip install mattermostdriver websockets
+
+# Запустить бота (настройки из .env)
+python main.py --mode bot
+
+# Или с переопределением канала
+python main.py --mode bot --mm-channel my-channel
+
+Обновлен main.py — добавлен флаг --mode:
+--mode cli (по умолчанию) — интерактивный терминал как раньше
+--mode bot — запуск как Mattermost бот

@@ -86,6 +86,7 @@ class MattermostBot:
         token: str,
         team: str,
         channel: str,
+        bot_name: str = "",
         scheme: str = "https",
         port: int = 443,
         verify: bool = True,
@@ -95,6 +96,7 @@ class MattermostBot:
         self.token = token
         self.team = team
         self.channel = channel
+        self.bot_name = bot_name.lstrip("@") if bot_name else ""
         self.scheme = scheme
         self.port = port
         self.verify = verify
@@ -103,6 +105,7 @@ class MattermostBot:
         self._bot_user_id: str = ""
         self._channel_id: str = ""
         self._executor = ThreadPoolExecutor(max_workers=4)
+        self._mention_re: re.Pattern | None = None
 
     # ------------------------------------------------------------------
     # Public
@@ -129,6 +132,15 @@ class MattermostBot:
             self._driver.login()
             self._bot_user_id = self._driver.client.userid
             logger.info("Mattermost bot connected, user_id=%s", self._bot_user_id)
+
+            if self.bot_name:
+                self._mention_re = re.compile(
+                    rf"@{re.escape(self.bot_name)}\b", re.IGNORECASE,
+                )
+                logger.info(
+                    "Bot will only respond to messages mentioning @%s",
+                    self.bot_name,
+                )
 
             channel = self._driver.channels.get_channel_by_name_and_team_name(
                 self.team, self.channel,
@@ -176,6 +188,24 @@ class MattermostBot:
                 message_text = post.get("message", "").strip()
                 if not message_text:
                     return
+
+                if self._mention_re:
+                    mentioned = self._mention_re.search(message_text)
+                    if not mentioned:
+                        mentions_raw = event_data.get("mentions")
+                        if mentions_raw:
+                            try:
+                                mention_ids = json.loads(mentions_raw) if isinstance(mentions_raw, str) else mentions_raw
+                            except (json.JSONDecodeError, TypeError):
+                                mention_ids = []
+                            mentioned = self._bot_user_id in mention_ids
+                        if not mentioned:
+                            return
+
+                if self._mention_re:
+                    message_text = self._mention_re.sub("", message_text).strip()
+                    if not message_text:
+                        return
 
                 root_id = post.get("root_id") or post.get("id")
                 session_id = f"mm-{root_id}"
