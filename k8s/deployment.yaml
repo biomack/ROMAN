@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: roman-agent
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: roman-agent
+  template:
+    metadata:
+      labels:
+        app: roman-agent
+    spec:
+      containers:
+        - name: roman-agent
+          image: biomack/roman:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["python", "main.py"]
+          args: ["--mode", "bot"]
+          envFrom:
+            - secretRef:
+                name: roman-agent-secrets
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/.env
+              subPath: .env
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: app-config
+          configMap:
+            name: roman-agent-config
+            items:
+              - key: .env
+                path: .env
