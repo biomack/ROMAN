@@ -1,5 +1,8 @@
 ---
 name: metrics_observer
+aliases:
+  - top_queries
+  - top-queries
 description: >
   Analyze service metrics from VictoriaMetrics MCP tools, detect anomalies,
   and provide operational conclusions with evidence. Use this skill whenever the

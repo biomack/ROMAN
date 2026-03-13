@@ -340,10 +340,6 @@ class Agent:
         return f"Unknown tool: {func_name}", False
 
     def _handle_load_skill(self, session: SessionData, skill_name: str) -> str:
-        if skill_name in session.active_skills:
-            logger.debug("Skill '%s' already loaded, skipping", skill_name)
-            return f"Skill '{skill_name}' is already loaded."
-
         logger.info("Loading skill '%s'...", skill_name)
         skill = self.skills.load_skill(skill_name)
         if skill is None:
@@ -351,15 +347,25 @@ class Agent:
             logger.warning("Skill '%s' not found. Available: %s", skill_name, available)
             return f"Skill '{skill_name}' not found. Available: {available}"
 
-        session.active_skills[skill_name] = skill
+        if skill.name in session.active_skills:
+            logger.debug(
+                "Skill '%s' already loaded (requested as '%s'), skipping",
+                skill.name,
+                skill_name,
+            )
+            return f"Skill '{skill.name}' is already loaded."
+
+        session.active_skills[skill.name] = skill
         tool_names = [t.name for t in skill.tools]
         extra = list(skill.extra_files.keys())
         logger.info(
             "Skill '%s' loaded — tools: %s, extra_files: %s",
-            skill_name, tool_names, extra,
+            skill.name,
+            tool_names,
+            extra,
         )
         return (
-            f"Skill '{skill_name}' loaded successfully.\n"
+            f"Skill '{skill.name}' loaded successfully.\n"
             f"Tools now available: {tool_names}\n"
             f"Extra reference files: {extra}\n"
             f"Instructions have been added to your system context."

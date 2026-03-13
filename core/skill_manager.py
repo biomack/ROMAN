@@ -54,6 +54,7 @@ class SkillManager:
     ):
         self.skills_dir = Path(skills_dir)
         self.skills: dict[str, Skill] = {}
+        self.skill_aliases: dict[str, str] = {}
         self.mcp_bridge = mcp_bridge or MCPBridge()
         self.mcp_bridge_manager = MCPBridgeManager()
         self.mcp_servers = mcp_servers or {}
@@ -76,12 +77,14 @@ class SkillManager:
                 continue
             meta = self._parse_frontmatter(skill_md)
             if meta and "name" in meta:
-                self.skills[meta["name"]] = Skill(
-                    name=meta["name"],
+                canonical_name = str(meta["name"])
+                self.skills[canonical_name] = Skill(
+                    name=canonical_name,
                     description=meta.get("description", ""),
                     path=entry,
                     meta=meta,
                 )
+                self._register_skill_aliases(canonical_name, meta.get("aliases"))
 
     @staticmethod
     def _parse_frontmatter(path: Path) -> dict | None:
@@ -101,7 +104,7 @@ class SkillManager:
     # ------------------------------------------------------------------
 
     def load_skill(self, name: str) -> Skill | None:
-        skill = self.skills.get(name)
+        skill = self.skills.get(self._resolve_skill_name(name))
         if skill is None or skill.loaded:
             return skill
 
@@ -118,6 +121,34 @@ class SkillManager:
         skill.tools.extend(self._build_mcp_tools(skill))
         skill.loaded = True
         return skill
+
+    def _register_skill_aliases(self, canonical_name: str, aliases: object) -> None:
+        candidates: set[str] = {canonical_name}
+        if isinstance(aliases, list):
+            for alias in aliases:
+                if isinstance(alias, str) and alias.strip():
+                    candidates.add(alias.strip())
+
+        for candidate in candidates:
+            normalized = self._normalize_skill_name(candidate)
+            if normalized:
+                self.skill_aliases[normalized] = canonical_name
+
+    @staticmethod
+    def _normalize_skill_name(name: str) -> str:
+        return (
+            (name or "")
+            .strip()
+            .lower()
+            .replace("-", "_")
+            .replace(" ", "_")
+        )
+
+    def _resolve_skill_name(self, name: str) -> str:
+        normalized = self._normalize_skill_name(name)
+        if normalized in self.skill_aliases:
+            return self.skill_aliases[normalized]
+        return name
 
     def _load_tools(self, tools_path: Path, skill_name: str) -> list[SkillTool]:
         spec = importlib.util.spec_from_file_location(

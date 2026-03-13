@@ -14,6 +14,7 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
     traceroute \
+    ansible \
     && rm -rf /var/lib/apt/lists/*
 
 COPY core ./core
