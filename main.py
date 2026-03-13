@@ -162,6 +162,7 @@ def _build_agent(cfg: Config, args) -> tuple[Agent, str, str, str]:
         openai_base_url=base_url,
         openai_model=model,
         openai_api_key=api_key,
+        openai_timeout_seconds=cfg.openai_timeout_seconds,
     )
 
     if not client.is_available():
@@ -174,7 +175,11 @@ def _build_agent(cfg: Config, args) -> tuple[Agent, str, str, str]:
         console.print(f"Available: {', '.join(models[:15])}")
 
     skill_manager = SkillManager(skills_dir=args.skills_dir, mcp_servers=cfg.mcp_servers)
-    agent = Agent(client=client, skill_manager=skill_manager)
+    agent = Agent(
+        client=client,
+        skill_manager=skill_manager,
+        temperature=cfg.temperature,
+    )
     return agent, provider, model, base_url
 
 

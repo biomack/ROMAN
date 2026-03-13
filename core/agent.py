@@ -46,10 +46,12 @@ class Agent:
         self,
         client: LLMClient,
         skill_manager: SkillManager,
+        temperature: float = 0.4,
         session_store: InMemorySessionStore | None = None,
     ):
         self.client = client
         self.skills = skill_manager
+        self.temperature = temperature
         self.sessions = session_store or InMemorySessionStore()
 
     # ------------------------------------------------------------------
@@ -105,7 +107,7 @@ class Agent:
             response = self.client.chat(
                 messages=[{"role": "system", "content": system}] + session.messages,
                 tools=tools,
-                temperature=0.4,
+                temperature=self.temperature,
             )
             msg = response.get("message", {})
 

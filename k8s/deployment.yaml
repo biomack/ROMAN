@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: roman-agent
-          image: biomack/roman:0.1.0
+          image: biomack/roman:0.1.2
           imagePullPolicy: IfNotPresent
           command: ["python", "main.py"]
           args: ["--mode", "bot"]

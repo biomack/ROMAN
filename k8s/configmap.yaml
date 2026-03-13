@@ -38,5 +38,5 @@ data:
     # MCP Servers
     MCP_SERVERS=VICTORIAMETRICS
     MCP_VICTORIAMETRICS_NAME=victoriametrics-mcp
-    MCP_VICTORIAMETRICS_URL=https://play-mcp.victoriametrics.com
+    MCP_VICTORIAMETRICS_URL=http://mcp-victoriametrics:8080
     MCP_VICTORIAMETRICS_TRANSPORT=http

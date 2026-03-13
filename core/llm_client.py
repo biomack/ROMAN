@@ -160,10 +160,12 @@ class OpenAIClient(LLMClient):
         base_url: str = "http://localhost:1234/v1",
         model: str = "qwen2.5-7b-instruct",
         api_key: str = "lm-studio",
+        timeout: float = 1200.0,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
+        self.timeout = timeout
 
     @property
     def provider_label(self) -> str:
@@ -192,7 +194,7 @@ class OpenAIClient(LLMClient):
             f"{self.base_url}/chat/completions",
             headers=headers,
             json=payload,
-            timeout=120,
+            timeout=self.timeout,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -303,9 +305,15 @@ def create_client(
     openai_base_url: str = "http://localhost:1234/v1",
     openai_model: str = "qwen2.5-7b-instruct",
     openai_api_key: str = "lm-studio",
+    openai_timeout_seconds: float = 1200.0,
 ) -> LLMClient:
     if provider == "ollama":
         return OllamaClient(base_url=ollama_base_url, model=ollama_model)
     if provider in ("openai", "lmstudio", "lm-studio", "openrouter", "vllm"):
-        return OpenAIClient(base_url=openai_base_url, model=openai_model, api_key=openai_api_key)
+        return OpenAIClient(
+            base_url=openai_base_url,
+            model=openai_model,
+            api_key=openai_api_key,
+            timeout=openai_timeout_seconds,
+        )
     raise ValueError(f"Unknown provider '{provider}'. Use 'ollama' or 'openai'.")

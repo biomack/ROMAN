@@ -59,6 +59,7 @@ class Config:
     openai_base_url: str
     openai_model: str
     openai_api_key: str
+    openai_timeout_seconds: float
     temperature: float
     skills_dir: str
     session_ttl_seconds: int
@@ -94,6 +95,7 @@ class Config:
             openai_base_url=os.getenv("OPENAI_BASE_URL", "http://localhost:1234/v1").strip(),
             openai_model=os.getenv("OPENAI_MODEL", "qwen2.5-7b-instruct").strip(),
             openai_api_key=os.getenv("OPENAI_API_KEY", "lm-studio").strip(),
+            openai_timeout_seconds=float(os.getenv("OPENAI_TIMEOUT_SECONDS", "1200")),
             temperature=float(os.getenv("LLM_TEMPERATURE", "0.4")),
             skills_dir=os.getenv("SKILLS_DIR", "skills").strip(),
             session_ttl_seconds=int(os.getenv("SESSION_TTL_SECONDS", "3600")),
