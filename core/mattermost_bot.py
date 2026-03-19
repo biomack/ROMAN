@@ -14,6 +14,7 @@ import logging
 import re
 import ssl
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 import websockets
 from mattermostdriver import Driver
@@ -87,6 +88,7 @@ class MattermostBot:
         team: str,
         channel: str,
         bot_name: str = "",
+        thread_history_depth: int = 20,
         scheme: str = "https",
         port: int = 443,
         verify: bool = True,
@@ -97,6 +99,7 @@ class MattermostBot:
         self.team = team
         self.channel = channel
         self.bot_name = bot_name.lstrip("@") if bot_name else ""
+        self.thread_history_depth = max(0, thread_history_depth)
         self.scheme = scheme
         self.port = port
         self.verify = verify
@@ -132,6 +135,10 @@ class MattermostBot:
             self._driver.login()
             self._bot_user_id = self._driver.client.userid
             logger.info("Mattermost bot connected, user_id=%s", self._bot_user_id)
+            logger.info(
+                "Thread history depth is set to %d message(s)",
+                self.thread_history_depth,
+            )
 
             if self.bot_name:
                 self._mention_re = re.compile(
@@ -216,7 +223,12 @@ class MattermostBot:
                 )
 
                 asyncio.ensure_future(
-                    self._process_and_reply(message_text, session_id, root_id)
+                    self._process_and_reply(
+                        message_text,
+                        session_id,
+                        root_id,
+                        post.get("id", ""),
+                    )
                 )
 
             except json.JSONDecodeError as exc:
@@ -227,15 +239,25 @@ class MattermostBot:
         return _handler
 
     async def _process_and_reply(
-        self, message_text: str, session_id: str, root_id: str,
+        self,
+        message_text: str,
+        session_id: str,
+        root_id: str,
+        current_post_id: str,
     ):
         """Run agent.chat in a thread and post the reply (background task)."""
         try:
+            user_input = self._prepare_input_with_thread_history(
+                message_text=message_text,
+                session_id=session_id,
+                root_id=root_id,
+                current_post_id=current_post_id,
+            )
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 self._executor,
                 self.agent.chat,
-                message_text,
+                user_input,
                 session_id,
             )
 
@@ -254,6 +276,104 @@ class MattermostBot:
             logger.exception(
                 "Error processing message (session=%s): %s", session_id, exc,
             )
+
+    def _prepare_input_with_thread_history(
+        self,
+        *,
+        message_text: str,
+        session_id: str,
+        root_id: str,
+        current_post_id: str,
+    ) -> str:
+        """
+        Add previous thread messages to the current prompt.
+
+        We do this only when the in-memory session is empty (for example, after
+        process restart) to avoid duplicating already remembered context.
+        """
+        if self.thread_history_depth <= 0:
+            return message_text
+
+        session = self.agent.sessions.get_or_create(session_id)
+        if session.messages:
+            return message_text
+
+        history_lines = self._fetch_thread_history_lines(
+            root_id=root_id,
+            current_post_id=current_post_id,
+        )
+        if not history_lines:
+            return message_text
+
+        logger.info(
+            "Hydrated session=%s with %d historical thread message(s)",
+            session_id,
+            len(history_lines),
+        )
+        history_block = "\n".join(history_lines)
+        return (
+            "Контекст треда (предыдущие сообщения, от старых к новым):\n"
+            f"{history_block}\n\n"
+            "Текущее сообщение пользователя:\n"
+            f"{message_text}"
+        )
+
+    def _fetch_thread_history_lines(
+        self,
+        *,
+        root_id: str,
+        current_post_id: str,
+    ) -> list[str]:
+        if not self._driver:
+            return []
+
+        try:
+            thread_data = self._driver.posts.get_thread(root_id)
+        except Exception as exc:
+            logger.warning("Failed to load thread history for root_id=%s: %s", root_id, exc)
+            return []
+
+        posts = thread_data.get("posts")
+        if not isinstance(posts, dict) or not posts:
+            return []
+
+        order = thread_data.get("order")
+        if isinstance(order, list) and order:
+            ordered_ids = [str(post_id) for post_id in order]
+        else:
+            ordered_ids = [
+                str(post_id)
+                for post_id, _ in sorted(
+                    posts.items(),
+                    key=lambda item: int(item[1].get("create_at", 0)) if isinstance(item[1], dict) else 0,
+                )
+            ]
+
+        history_lines: list[str] = []
+        for post_id in ordered_ids:
+            post = posts.get(post_id)
+            if not isinstance(post, dict):
+                continue
+            if post_id == current_post_id:
+                continue
+
+            text = re.sub(r"\s+", " ", str(post.get("message", "")).strip())
+            if not text:
+                continue
+
+            role = self._mattermost_role_to_llm_role(post)
+            history_lines.append(f"{role}: {text}")
+
+        if self.thread_history_depth > 0:
+            history_lines = history_lines[-self.thread_history_depth:]
+
+        return history_lines
+
+    def _mattermost_role_to_llm_role(self, post: dict[str, Any]) -> str:
+        user_id = str(post.get("user_id", ""))
+        if user_id and user_id == self._bot_user_id:
+            return "assistant"
+        return "user"
 
     def _post_reply(self, text: str, root_id: str):
         if not self._driver:

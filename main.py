@@ -192,6 +192,7 @@ def run_bot(cfg: Config, args):
     mm_url = cfg.mattermost.url
     mm_team = cfg.mattermost.team
     mm_bot_name = cfg.mattermost.bot_name
+    mm_thread_history_depth = cfg.mattermost.thread_history_depth
 
     if not mm_token:
         console.print(
@@ -211,7 +212,8 @@ def run_bot(cfg: Config, args):
         f"[bold]Agent Skills[/] — Mattermost bot\n"
         f"Provider: [cyan]{provider}[/]  |  Model: [cyan]{model}[/]\n"
         f"Server:   [cyan]{base_url}[/]\n"
-        f"Channel:  [cyan]{mm_team}/{mm_channel}[/] @ {mm_url}",
+        f"Channel:  [cyan]{mm_team}/{mm_channel}[/] @ {mm_url}\n"
+        f"Thread history depth: [cyan]{mm_thread_history_depth}[/]",
         title="Mattermost Bot",
         border_style="bright_green",
     ))
@@ -229,6 +231,7 @@ def run_bot(cfg: Config, args):
         team=mm_team,
         channel=mm_channel,
         bot_name=mm_bot_name,
+        thread_history_depth=mm_thread_history_depth,
     )
     bot.run()
 

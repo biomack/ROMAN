@@ -39,15 +39,18 @@ class MattermostConfig:
     team: str
     channel: str
     bot_name: str
+    thread_history_depth: int
 
     @classmethod
     def from_env(cls) -> "MattermostConfig":
+        thread_history_depth = int(os.getenv("MATTERMOST_THREAD_HISTORY_DEPTH", "20"))
         return cls(
             url=os.getenv("MATTERMOST_URL", "").strip(),
             token=os.getenv("MATTERMOST_TOKEN", "").strip(),
             team=os.getenv("MATTERMOST_TEAM", "").strip(),
             channel=os.getenv("MATTERMOST_CHANNEL", "").strip(),
             bot_name=os.getenv("MATTERMOST_BOT_NAME", "").strip(),
+            thread_history_depth=max(0, thread_history_depth),
         )
 
 
