@@ -73,6 +73,12 @@ This skill is designed for deterministic execution: same input intent should pro
 - Do not invent label keys or metric names that were not observed during discovery.
 - If data is missing, explicitly report `insufficient_data` rather than guessing.
 - Keep output format stable: `Scope -> Evidence -> Conclusion -> Next action`.
+- For `metrics`, `labels`, and `label_values`, use `match` (single selector string), not `matches[]`.
+- For instance targets, prefer full values with port (for example, `172.16.92.9:9100`).
+- Before the final answer, always call `format_metrics_report` with BOTH required args:
+  `service` and `metrics_data`.
+- When user asks "is service healthy", evaluate BOTH latency and error rate
+  before concluding `healthy`/`degraded`/`critical`.
 
 ## Report format
 
@@ -107,3 +113,5 @@ One practical follow-up step (e.g., "check logs for service X", "investigate pod
 - If a query returns no data, re-check metric name and label keys first (`instance` vs `pod` vs `service` vs `container`).
 - For high-cardinality metrics, use label filters to limit result size.
 - Avoid overly broad queries on large datasets — they slow down the MCP server.
+- Example selector for VictoriaMetrics discovery tools:
+  `match: '{instance="172.16.92.9:9100"}'`

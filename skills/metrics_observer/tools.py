@@ -10,6 +10,7 @@ from typing import Annotated, Any, Literal
 from core.tool_registry import tool
 
 _IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+_INSTANCE_RE = re.compile(r"\b((?:\d{1,3}\.){3}\d{1,3}:\d{2,5})\b")
 
 _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "cpu": ("cpu", "core", "load"),
@@ -90,15 +91,26 @@ def collect_context(
             context["service"] = match.group(1)
             break
 
-    ips = _IP_RE.findall(user_request)
-    if ips:
+    instance_match = _INSTANCE_RE.search(user_request)
+    if instance_match:
         context["target"] = {
             "kind": "instance",
             "label": "instance",
-            "value": ips[0],
+            "value": instance_match.group(1),
         }
         if not context["service"]:
-            context["service"] = ips[0]
+            context["service"] = instance_match.group(1)
+    else:
+        ips = _IP_RE.findall(user_request)
+        if ips:
+            # Fallback when port is missing in user input.
+            context["target"] = {
+                "kind": "instance",
+                "label": "instance",
+                "value": ips[0],
+            }
+            if not context["service"]:
+                context["service"] = ips[0]
 
     pod_match = re.search(r"(?:pod)\s+([a-zA-Z0-9_.:-]+)", user_request, re.IGNORECASE)
     if pod_match and not context["target"]:
@@ -390,6 +402,9 @@ def format_metrics_report(
     next_action: Annotated[str, "Recommended next action"] = "",
 ) -> str:
     """Format metrics analysis results into a structured report."""
+    if not isinstance(metrics_data, dict):
+        metrics_data = {}
+
     report = {
         "scope": {
             "service": service,
@@ -401,7 +416,13 @@ def format_metrics_report(
         "next_action": next_action,
     }
 
-    for metric_name, value in metrics_data.get("values", {}).items():
+    values = metrics_data.get("values", {})
+    if not isinstance(values, dict):
+        values = {}
+
+    for metric_name, value in values.items():
+        if not isinstance(value, dict):
+            value = {"current": value}
         report["evidence"].append({
             "metric": metric_name,
             "value": value.get("current"),

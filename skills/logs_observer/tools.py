@@ -1,6 +1,6 @@
 """
 Local tools for logs_observer skill.
-MCP tools (vl_query, vl_hits, etc.) are provided by the VictoriaLogs MCP server.
+MCP tools (query, hits, facets, etc.) are provided by the VictoriaLogs MCP server.
 """
 
 import json
@@ -55,6 +55,30 @@ _SEVERITY_KEYWORDS: dict[str, list[str]] = {
     "info": ["info"],
     "debug": ["debug", "отладк"],
 }
+
+
+def _build_scope_filter(service: str) -> str:
+    safe = (service or "").strip().replace('"', '\\"')
+    if not safe:
+        return ""
+
+    # "service" in user messages is often overloaded (service/cluster/namespace).
+    # Build a tolerant scope filter so we still get useful records.
+    candidates = [
+        f'service:"{safe}"',
+        f'cluster:"{safe}"',
+        f'namespace:"{safe}"',
+        f'kubernetes.namespace_name:"{safe}"',
+        f'labels.clusterName:"{safe}"',
+    ]
+    return "(" + " OR ".join(candidates) + ")"
+
+
+def _build_severity_filter(severity: str) -> str:
+    sev = (severity or "").strip().lower()
+    if not sev:
+        return ""
+    return f"(level:{sev} OR severity:{sev} OR log.level:{sev})"
 
 
 def _extract_time_range(text: str) -> dict[str, Any]:
@@ -188,11 +212,10 @@ def build_logsql_query(
     if stream_filter:
         parts.append(stream_filter)
     elif service:
-        safe_service = service.replace('"', '\\"')
-        parts.append(f'service:"{safe_service}"')
+        parts.append(_build_scope_filter(service))
 
     if severity:
-        parts.append(f"level:{severity}")
+        parts.append(_build_severity_filter(severity))
 
     if search_text:
         safe_text = search_text.replace('"', '\\"')
@@ -201,6 +224,7 @@ def build_logsql_query(
     if extra_filters:
         parts.append(extra_filters)
 
+    parts = [p for p in parts if p]
     query = " AND ".join(parts) if parts else "*"
 
     result = {

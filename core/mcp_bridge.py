@@ -257,7 +257,13 @@ class MCPBridge:
                         texts.append(json.dumps(item, ensure_ascii=False))
                 else:
                     texts.append(str(item))
-            return "\n".join(texts) if texts else json.dumps(tool_result, ensure_ascii=False)
+            if texts:
+                merged = "\n".join(texts)
+                # Some MCP servers return empty text chunks while keeping useful
+                # structured fields in the tool result payload.
+                if merged.strip():
+                    return merged
+            return json.dumps(tool_result, ensure_ascii=False, indent=2)
 
         return json.dumps(tool_result, ensure_ascii=False, indent=2)
 

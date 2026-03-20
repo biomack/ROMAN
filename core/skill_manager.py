@@ -294,7 +294,70 @@ class SkillManager:
         await self.mcp_bridge_manager.ensure_connected(
             server, server_config.url, server_config.transport
         )
-        return await self.mcp_bridge_manager.list_tools(server, expose_tools)
+        requested = [
+            str(name).strip()
+            for name in expose_tools
+            if isinstance(name, str) and str(name).strip()
+        ]
+        specs = await self.mcp_bridge_manager.list_tools(server, requested)
+        if specs or not requested:
+            return specs
+
+        all_specs = await self.mcp_bridge_manager.list_tools(server, [])
+        by_name_lower = {spec.name.lower(): spec for spec in all_specs}
+
+        resolved_specs = []
+        resolved_names: set[str] = set()
+        aliases_used: dict[str, str] = {}
+        unresolved: list[str] = []
+        for raw_name in requested:
+            resolved = None
+            for candidate in self._mcp_tool_name_candidates(raw_name):
+                spec = by_name_lower.get(candidate.lower())
+                if spec is not None:
+                    resolved = spec
+                    aliases_used[raw_name] = spec.name
+                    break
+
+            if resolved is None:
+                unresolved.append(raw_name)
+                continue
+
+            if resolved.name in resolved_names:
+                continue
+            resolved_names.add(resolved.name)
+            resolved_specs.append(resolved)
+
+        if aliases_used:
+            logger.warning(
+                "MCP expose_tools aliases resolved for server '%s': %s",
+                server,
+                aliases_used,
+            )
+        if unresolved:
+            logger.warning(
+                "Unknown expose_tools for MCP server '%s': %s. Available: %s",
+                server,
+                unresolved,
+                [spec.name for spec in all_specs],
+            )
+
+        return resolved_specs
+
+    @staticmethod
+    def _mcp_tool_name_candidates(name: str) -> list[str]:
+        """Generate compatibility candidates for MCP tool names."""
+        normalized = (name or "").strip()
+        if not normalized:
+            return []
+
+        candidates = [normalized]
+        # Backward compatibility for prefixed aliases like vl_query/vm_query.
+        if "_" in normalized:
+            prefix, remainder = normalized.split("_", 1)
+            if remainder and prefix in {"vl", "vm", "mcp"}:
+                candidates.append(remainder)
+        return candidates
 
     def _build_stub_tools(self, server: str, expose_tools: list[str]) -> list[SkillTool]:
         """Build stub tools when MCP server is not available."""
