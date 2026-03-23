@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-victoriametrics
+  namespace: keep-dev
+  labels:
+    app: mcp-victoriametrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-victoriametrics
+  template:
+    metadata:
+      labels:
+        app: mcp-victoriametrics
+    spec:
+      containers:
+        - name: mcp-victoriametrics
+          image: ghcr.io/victoriametrics-community/mcp-victoriametrics:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: VM_INSTANCE_ENTRYPOINT
+              value: http://vmselect-xaas-mon-vmcluster.monitoring.svc:8481
+            - name: VM_INSTANCE_TYPE
+              value: cluster
+            - name: MCP_SERVER_MODE
+              value: sse
+            - name: MCP_LISTEN_ADDR
+              value: ':8080'
+          imagePullPolicy: Always

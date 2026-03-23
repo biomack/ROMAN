@@ -1,0 +1,136 @@
+---
+- name: Install Prometheus Node Exporter
+  hosts: node_exporter_targets
+  become: true
+  vars:
+    node_exporter_version: "1.8.2"
+    node_exporter_user: node_exporter
+    node_exporter_group: node_exporter
+    node_exporter_port: 9100
+    node_exporter_arch: amd64
+    node_exporter_download_url: >-
+      https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-{{ node_exporter_arch }}.tar.gz
+    node_exporter_install_dir: /usr/local/bin
+    node_exporter_textfile_dir: /var/lib/node_exporter/textfile_collector
+
+  tasks:
+    - name: Check if Node Exporter is already running
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ node_exporter_port }}/metrics"
+        method: GET
+        timeout: 5
+      register: ne_check
+      failed_when: false
+      changed_when: false
+
+    - name: Skip host if Node Exporter is already running
+      ansible.builtin.meta: end_host
+      when: ne_check.status is defined and ne_check.status == 200
+
+    - name: Create node_exporter system group
+      ansible.builtin.group:
+        name: "{{ node_exporter_group }}"
+        system: true
+        state: present
+
+    - name: Create node_exporter system user
+      ansible.builtin.user:
+        name: "{{ node_exporter_user }}"
+        group: "{{ node_exporter_group }}"
+        shell: /usr/sbin/nologin
+        system: true
+        create_home: false
+        state: present
+
+    - name: Create textfile collector directory
+      ansible.builtin.file:
+        path: "{{ node_exporter_textfile_dir }}"
+        state: directory
+        owner: "{{ node_exporter_user }}"
+        group: "{{ node_exporter_group }}"
+        mode: "0755"
+
+    - name: Download Node Exporter archive
+      ansible.builtin.get_url:
+        url: "{{ node_exporter_download_url }}"
+        dest: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+        mode: "0644"
+        timeout: 60
+      register: ne_download
+
+    - name: Extract Node Exporter binary
+      ansible.builtin.unarchive:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+        dest: /tmp
+        remote_src: true
+      when: ne_download is changed
+
+    - name: Install Node Exporter binary
+      ansible.builtin.copy:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ node_exporter_arch }}/node_exporter"
+        dest: "{{ node_exporter_install_dir }}/node_exporter"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+      notify: Restart node_exporter
+
+    - name: Deploy systemd unit file
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/node_exporter.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Prometheus Node Exporter
+          Documentation=https://prometheus.io/docs/guides/node-exporter/
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=simple
+          User={{ node_exporter_user }}
+          Group={{ node_exporter_group }}
+          ExecStart={{ node_exporter_install_dir }}/node_exporter \
+            --web.listen-address=:{{ node_exporter_port }} \
+            --collector.textfile.directory={{ node_exporter_textfile_dir }}
+          Restart=on-failure
+          RestartSec=5
+          SyslogIdentifier=node_exporter
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart node_exporter
+
+    - name: Enable and start node_exporter service
+      ansible.builtin.systemd:
+        name: node_exporter
+        daemon_reload: true
+        enabled: true
+        state: started
+
+    - name: Wait for Node Exporter to become available
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ node_exporter_port }}/metrics"
+        method: GET
+        timeout: 5
+      register: ne_verify
+      retries: 5
+      delay: 3
+      until: ne_verify.status == 200
+
+    - name: Clean up downloaded archive
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+        - "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ node_exporter_arch }}"
+
+  handlers:
+    - name: Restart node_exporter
+      ansible.builtin.systemd:
+        name: node_exporter
+        daemon_reload: true
+        state: restarted
