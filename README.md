@@ -37,6 +37,20 @@ python main.py --new-session-per-run
 - `/tools` — какие tools были вызваны в последнем ходе
 - `/help`, `/quit`
 
+## Импортированные VictoriaMetrics skills (без MCP)
+
+В проект добавлены и доступны агенту:
+
+- `victoriametrics-query` — PromQL/MetricsQL запросы к VictoriaMetrics по HTTP.
+- `victorialogs-query` — LogsQL запросы к VictoriaLogs по HTTP.
+
+Для них нужны переменные окружения:
+
+- `VM_METRICS_URL`
+- `VM_LOGS_URL`
+- `VM_AUTH_HEADER` (опционально)
+- `VM_TIMEOUT_SECONDS` (опционально, по умолчанию `20`)
+
 ## Сессии
 
 `session_id` определяет историю и активные скиллы:

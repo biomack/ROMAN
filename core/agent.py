@@ -64,6 +64,7 @@ class Agent:
         session.session_state["last_metadata"] = metadata or {}
         session.session_state["context_collected_for_turn"] = False
         session.session_state["last_tool_calls"] = []
+        session.session_state["empty_vl_query_streak"] = 0
         response = self._run_loop(session)
         self.sessions.save(session)
         return response
@@ -143,6 +144,18 @@ class Agent:
                         "content": result,
                         "tool_call_id": tc.get("id", ""),
                     })
+                    repeated_stop = self._handle_repeated_empty_tool_result(
+                        session=session,
+                        tool_name=fn_name,
+                        tool_args=fn_args,
+                        tool_result=result,
+                    )
+                    if repeated_stop:
+                        logger.warning(
+                            "Stopping loop: repeated empty tool result for %s", fn_name
+                        )
+                        session.messages.append({"role": "assistant", "content": repeated_stop})
+                        return repeated_stop
                     if should_stop:
                         question = self._extract_clarifying_question(result)
                         logger.info("Stopping loop: clarification needed — %s", question[:300])
@@ -156,6 +169,92 @@ class Agent:
 
         logger.warning("Agent reached MAX_TOOL_ROUNDS=%d without final answer", MAX_TOOL_ROUNDS)
         return "[Agent reached maximum tool-call rounds]"
+
+    def _handle_repeated_empty_tool_result(
+        self,
+        session: SessionData,
+        tool_name: str,
+        tool_args: dict | str,
+        tool_result: str,
+    ) -> str | None:
+        """
+        Guard against infinite loops when the model keeps calling the same
+        log-query tool with empty results.
+        """
+        if tool_name not in {"vl_query"}:
+            return None
+        if not self._is_empty_log_query_result(tool_result):
+            session.session_state["empty_vl_query_streak"] = 0
+            return None
+
+        try:
+            if isinstance(tool_args, str):
+                args_obj = json.loads(tool_args)
+            else:
+                args_obj = tool_args or {}
+            signature = f"{tool_name}:{json.dumps(args_obj, sort_keys=True, ensure_ascii=False)}"
+        except Exception:
+            signature = f"{tool_name}:{str(tool_args)}"
+
+        counters = session.session_state.setdefault("empty_tool_repeat_counters", {})
+        current = int(counters.get(signature, 0)) + 1
+        counters[signature] = current
+
+        # Two identical empty queries in a row are enough to stop and report.
+        if current >= 2:
+            return (
+                "По указанному фильтру и периоду записи не найдены (0 результатов). "
+                "Уточните период или фильтр (например, другой namespace/service), "
+                "и я повторю запрос."
+            )
+
+        # Additional guard: stop if the model keeps producing empty vl_query
+        # results with slightly different args (for example shifting start time).
+        streak = int(session.session_state.get("empty_vl_query_streak", 0)) + 1
+        session.session_state["empty_vl_query_streak"] = streak
+        if streak >= 3:
+            query_value = self._extract_query_from_tool_args(tool_args)
+            query_hint = f" (query: {query_value})" if query_value else ""
+            return (
+                "Получено несколько подряд пустых результатов из VictoriaLogs"
+                f"{query_hint}. "
+                "Останавливаю повторные вызовы, чтобы не зацикливаться. "
+                "Уточните период/фильтр, и я выполню новый запрос."
+            )
+        return None
+
+    @staticmethod
+    def _extract_query_from_tool_args(tool_args: dict | str) -> str:
+        try:
+            if isinstance(tool_args, str):
+                args_obj = json.loads(tool_args)
+            else:
+                args_obj = tool_args or {}
+            value = args_obj.get("query")
+            return str(value) if value is not None else ""
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _is_empty_log_query_result(tool_result: str) -> bool:
+        try:
+            payload = json.loads(tool_result)
+        except Exception:
+            return False
+
+        # New structured response format from vl_query.
+        if isinstance(payload, dict) and payload.get("records_count") == 0:
+            return True
+
+        # Backward-compatible shape where only text is returned.
+        if (
+            isinstance(payload, dict)
+            and int(payload.get("status_code", 0)) == 200
+            and str(payload.get("text", "")).strip() == ""
+        ):
+            return True
+
+        return False
 
     # ------------------------------------------------------------------
     # System prompt (rebuilt each turn to reflect active skills)

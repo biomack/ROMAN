@@ -35,11 +35,11 @@ data:
     # Sensitive values are injected from Secret and override this file.
     MATTERMOST_TOKEN=
 
-    # MCP Servers
-    MCP_SERVERS=VICTORIAMETRICS,VICTORIALOGS
-    MCP_VICTORIAMETRICS_NAME=victoriametrics-mcp
-    MCP_VICTORIAMETRICS_URL=http://mcp-victoriametrics:8080
-    MCP_VICTORIAMETRICS_TRANSPORT=http
-    MCP_VICTORIALOGS_NAME=victorialogs-mcp
-    MCP_VICTORIALOGS_URL=http://mcp-victorialogs:8081
-    MCP_VICTORIALOGS_TRANSPORT=http
+    # MCP Servers (optional; leave empty for non-MCP flow)
+    MCP_SERVERS=
+
+    # Direct VictoriaMetrics/VictoriaLogs HTTP endpoints (non-MCP skills)
+    VM_METRICS_URL=https://play.victoriametrics.com
+    VM_LOGS_URL=http://victorialogs:9428
+    VM_AUTH_HEADER=
+    VM_TIMEOUT_SECONDS=20
