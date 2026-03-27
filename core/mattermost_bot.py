@@ -196,7 +196,18 @@ class MattermostBot:
                 if not message_text:
                     return
 
-                if self._mention_re:
+                root_id = post.get("root_id") or post.get("id")
+                session_id = f"mm-{root_id}"
+                is_thread_reply = bool(post.get("root_id"))
+
+                # Mention is required for new top-level messages. Once the
+                # thread is active, users can continue without tagging the bot.
+                thread_is_active = False
+                if is_thread_reply:
+                    session = self.agent.sessions.get_or_create(session_id)
+                    thread_is_active = bool(session.messages)
+
+                if self._mention_re and not thread_is_active:
                     mentioned = self._mention_re.search(message_text)
                     if not mentioned:
                         mentions_raw = event_data.get("mentions")
@@ -213,9 +224,6 @@ class MattermostBot:
                     message_text = self._mention_re.sub("", message_text).strip()
                     if not message_text:
                         return
-
-                root_id = post.get("root_id") or post.get("id")
-                session_id = f"mm-{root_id}"
 
                 logger.info(
                     "Received message from user=%s session=%s: %s",

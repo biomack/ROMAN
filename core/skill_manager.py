@@ -6,19 +6,13 @@ Implements the core Agent Skills pattern:
 2. Load full skill instructions + tools on demand (progressive disclosure)
 """
 
-import asyncio
 import importlib.util
-import logging
-import yaml
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 
-from .mcp_bridge import MCPBridge, MCPBridgeManager
-from .config import Config, MCPServerConfig
+import yaml
+
 from .tool_registry import discover_tools
-
-logger = logging.getLogger(__name__)
-
 
 @dataclass
 class SkillTool:
@@ -26,8 +20,6 @@ class SkillTool:
     description: str
     parameters: dict
     function: callable
-    tool_type: str = "python"
-    mcp_server: str = ""
 
 
 @dataclass
@@ -47,23 +39,18 @@ class SkillManager:
         self,
         skills_dir: str = "skills",
         *,
-        mcp_bridge: MCPBridge | None = None,
-        mcp_servers: dict[str, MCPServerConfig] | None = None,
         max_reference_file_bytes: int = 32768,
         max_reference_total_bytes: int = 262144,
     ):
         self.skills_dir = Path(skills_dir)
         self.skills: dict[str, Skill] = {}
         self.skill_aliases: dict[str, str] = {}
-        self.mcp_bridge = mcp_bridge or MCPBridge()
-        self.mcp_bridge_manager = MCPBridgeManager()
-        self.mcp_servers = mcp_servers or {}
         self.max_reference_file_bytes = max_reference_file_bytes
         self.max_reference_total_bytes = max_reference_total_bytes
         self._discover()
 
     # ------------------------------------------------------------------
-    # Phase 1: Discovery (lightweight – frontmatter only)
+    # Phase 1: Discovery (lightweight - frontmatter only)
     # ------------------------------------------------------------------
 
     def _discover(self):
@@ -118,7 +105,6 @@ class SkillManager:
         if tools_py.exists():
             skill.tools = self._load_tools(tools_py, skill.name)
 
-        skill.tools.extend(self._build_mcp_tools(skill))
         skill.loaded = True
         return skill
 
@@ -165,7 +151,6 @@ class SkillManager:
                     description=td["description"],
                     parameters=td["parameters"],
                     function=td["function"],
-                    tool_type="python",
                 )
                 for td in decorated
             ]
@@ -180,7 +165,6 @@ class SkillManager:
                         description=tool_def["description"],
                         parameters=tool_def["parameters"],
                         function=func,
-                        tool_type="python",
                     )
                 )
         return results
@@ -211,182 +195,6 @@ class SkillManager:
                 references[rel] = text
                 total_bytes += len(raw)
         return references
-
-    def _build_mcp_tools(self, skill: Skill) -> list[SkillTool]:
-        mcp_meta = skill.meta.get("mcp")
-        if not isinstance(mcp_meta, dict):
-            return []
-
-        server = str(mcp_meta.get("server", "")).strip()
-        expose_tools = mcp_meta.get("expose_tools", [])
-        if not server or not isinstance(expose_tools, list):
-            return []
-
-        server_config = self.mcp_servers.get(server)
-        if not server_config:
-            logger.warning(f"MCP server '{server}' not configured in mcp_servers dict")
-            logger.warning(f"Available MCP servers: {list(self.mcp_servers.keys())}")
-            return self._build_stub_tools(server, expose_tools)
-
-        logger.info(f"Connecting to MCP server '{server}' at {server_config.url}")
-
-        try:
-            specs = self._run_async(
-                self._fetch_mcp_tools(server, server_config, expose_tools)
-            )
-        except Exception as e:
-            logger.error(f"Failed to fetch MCP tools from {server}: {e}", exc_info=True)
-            return self._build_stub_tools(server, expose_tools)
-
-        logger.info(f"Loaded {len(specs)} tools from MCP server '{server}'")
-        results: list[SkillTool] = []
-
-        for spec in specs:
-            results.append(
-                SkillTool(
-                    name=spec.name,
-                    description=spec.description,
-                    parameters=spec.parameters,
-                    function=self._make_mcp_tool_fn(server, spec.name, server_config),
-                    tool_type="mcp",
-                    mcp_server=server,
-                )
-            )
-        return results
-
-    def _make_mcp_tool_fn(self, server: str, tool_name: str, server_config: MCPServerConfig):
-        """Create a callable function for MCP tool invocation."""
-        manager = self.mcp_bridge_manager
-
-        async def _async_call(**kwargs):
-            await manager.ensure_connected(
-                server, server_config.url, server_config.transport
-            )
-            return await manager.call_tool(server, tool_name, kwargs)
-
-        def _mcp_fn(**kwargs):
-            return self._run_async(_async_call(**kwargs))
-
-        return _mcp_fn
-
-    def _run_async(self, coro):
-        """Run async coroutine from sync context safely."""
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop and loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, coro)
-                return future.result(timeout=60)
-        else:
-            return asyncio.run(coro)
-
-    async def _fetch_mcp_tools(
-        self,
-        server: str,
-        server_config: MCPServerConfig,
-        expose_tools: list[str],
-    ) -> list:
-        """Fetch tools from MCP server asynchronously."""
-        await self.mcp_bridge_manager.ensure_connected(
-            server, server_config.url, server_config.transport
-        )
-        requested = [
-            str(name).strip()
-            for name in expose_tools
-            if isinstance(name, str) and str(name).strip()
-        ]
-        specs = await self.mcp_bridge_manager.list_tools(server, requested)
-        if specs or not requested:
-            return specs
-
-        all_specs = await self.mcp_bridge_manager.list_tools(server, [])
-        by_name_lower = {spec.name.lower(): spec for spec in all_specs}
-
-        resolved_specs = []
-        resolved_names: set[str] = set()
-        aliases_used: dict[str, str] = {}
-        unresolved: list[str] = []
-        for raw_name in requested:
-            resolved = None
-            for candidate in self._mcp_tool_name_candidates(raw_name):
-                spec = by_name_lower.get(candidate.lower())
-                if spec is not None:
-                    resolved = spec
-                    aliases_used[raw_name] = spec.name
-                    break
-
-            if resolved is None:
-                unresolved.append(raw_name)
-                continue
-
-            if resolved.name in resolved_names:
-                continue
-            resolved_names.add(resolved.name)
-            resolved_specs.append(resolved)
-
-        if aliases_used:
-            logger.warning(
-                "MCP expose_tools aliases resolved for server '%s': %s",
-                server,
-                aliases_used,
-            )
-        if unresolved:
-            logger.warning(
-                "Unknown expose_tools for MCP server '%s': %s. Available: %s",
-                server,
-                unresolved,
-                [spec.name for spec in all_specs],
-            )
-
-        return resolved_specs
-
-    @staticmethod
-    def _mcp_tool_name_candidates(name: str) -> list[str]:
-        """Generate compatibility candidates for MCP tool names."""
-        normalized = (name or "").strip()
-        if not normalized:
-            return []
-
-        candidates = [normalized]
-        # Backward compatibility for prefixed aliases like vl_query/vm_query.
-        if "_" in normalized:
-            prefix, remainder = normalized.split("_", 1)
-            if remainder and prefix in {"vl", "vm", "mcp"}:
-                candidates.append(remainder)
-        return candidates
-
-    def _build_stub_tools(self, server: str, expose_tools: list[str]) -> list[SkillTool]:
-        """Build stub tools when MCP server is not available."""
-        results: list[SkillTool] = []
-        for tool_name in expose_tools:
-            def _make_stub_fn(srv: str, name: str):
-                def _stub_fn(**kwargs):
-                    return (
-                        f"MCP server '{srv}' not connected. "
-                        f"Tool '{name}' cannot be executed. "
-                        f"Arguments: {kwargs}"
-                    )
-                return _stub_fn
-
-            results.append(
-                SkillTool(
-                    name=str(tool_name),
-                    description=f"MCP tool '{tool_name}' from server '{server}' (not connected)",
-                    parameters={
-                        "type": "object",
-                        "properties": {},
-                        "additionalProperties": True,
-                    },
-                    function=_make_stub_fn(server, str(tool_name)),
-                    tool_type="mcp",
-                    mcp_server=server,
-                )
-            )
-        return results
 
     # ------------------------------------------------------------------
     # Helpers

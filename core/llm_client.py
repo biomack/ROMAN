@@ -1,7 +1,7 @@
 """
 Unified LLM client interface.
 
-Both OllamaClient and OpenAIClient return a normalised response:
+OpenAI-compatible clients return a normalised response:
 
     {
         "message": {
@@ -220,15 +220,11 @@ class OpenAIClient(LLMClient):
 def create_client(
     provider: str,
     *,
-    ollama_base_url: str = "http://localhost:11434",
-    ollama_model: str = "qwen2.5:7b",
     openai_base_url: str = "http://localhost:1234/v1",
     openai_model: str = "qwen2.5-7b-instruct",
     openai_api_key: str = "lm-studio",
     openai_timeout_seconds: float = 1200.0,
 ) -> LLMClient:
-    if provider == "ollama":
-        return OllamaClient(base_url=ollama_base_url, model=ollama_model)
     if provider in ("openai", "lmstudio", "lm-studio", "openrouter", "vllm"):
         return OpenAIClient(
             base_url=openai_base_url,
@@ -236,4 +232,6 @@ def create_client(
             api_key=openai_api_key,
             timeout=openai_timeout_seconds,
         )
-    raise ValueError(f"Unknown provider '{provider}'. Use 'ollama' or 'openai'.")
+    raise ValueError(
+        f"Unknown provider '{provider}'. Use one of: openai, lmstudio, lm-studio, openrouter, vllm."
+    )

@@ -20,6 +20,7 @@ from .session_store import InMemorySessionStore, SessionData
 logger = logging.getLogger(__name__)
 
 MAX_TOOL_ROUNDS = 15
+MAX_EMPTY_FINAL_RETRIES = 1
 
 SYSTEM_TEMPLATE = """\
 You are a helpful AI assistant with a dynamic skills system.
@@ -86,6 +87,7 @@ class Agent:
     # ------------------------------------------------------------------
 
     def _run_loop(self, session: SessionData) -> str:
+        empty_final_retries = 0
         for round_num in range(MAX_TOOL_ROUNDS):
             tools = self._collect_tools(session)
             system = self._build_system_prompt(session)
@@ -163,6 +165,34 @@ class Agent:
                         return question
             else:
                 content = msg.get("content", "")
+                if not str(content).strip():
+                    if empty_final_retries < MAX_EMPTY_FINAL_RETRIES:
+                        empty_final_retries += 1
+                        logger.warning(
+                            "LLM returned empty final response; retrying (%d/%d)",
+                            empty_final_retries,
+                            MAX_EMPTY_FINAL_RETRIES,
+                        )
+                        session.messages.append({
+                            "role": "user",
+                            "content": (
+                                "You returned an empty final answer. "
+                                "Please provide a concise final response to the user "
+                                "based on the completed tool results."
+                            ),
+                        })
+                        continue
+
+                    fallback = (
+                        "Инструменты выполнились, но модель не сформировала итоговый ответ. "
+                        "Повторите запрос или уточните, какой формат ответа нужен."
+                    )
+                    logger.warning(
+                        "LLM returned empty final response after retries; using fallback text"
+                    )
+                    session.messages.append({"role": "assistant", "content": fallback})
+                    return fallback
+
                 logger.info("LLM final response (len=%d): %s", len(content), content[:500])
                 session.messages.append({"role": "assistant", "content": content})
                 return content

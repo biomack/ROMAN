@@ -8,7 +8,6 @@ CLI flags override .env values.
 Usage:
     python main.py                                        # interactive CLI (default)
     python main.py --mode bot                             # Mattermost bot mode
-    python main.py --provider ollama --model llama3.1     # override via CLI
     python main.py --provider openai --url http://localhost:1234/v1
 
 Commands inside chat (CLI mode only):
@@ -30,7 +29,14 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 
-from core import Config, SkillManager, Agent, MattermostBot, create_client
+from core import (
+    Config,
+    SkillManager,
+    Agent,
+    InMemorySessionStore,
+    MattermostBot,
+    create_client,
+)
 
 LOG_FILE = Path(__file__).parent / "agent_debug.log"
 
@@ -51,17 +57,17 @@ _setup_logging()
 
 console = Console()
 
-SKILLS_DIR = Path(__file__).parent / "skills"
-
-
 def parse_args(cfg: Config):
     parser = argparse.ArgumentParser(
-        description="Skills-based AI Agent (Ollama / LM Studio / OpenAI-compat)"
+        description="Skills-based AI Agent (OpenAI-compatible providers)"
     )
     parser.add_argument(
         "--provider",
         default=cfg.provider,
-        help=f"LLM provider: ollama | openai (default from .env: {cfg.provider})",
+        help=(
+            f"LLM provider: openai | lmstudio | lm-studio | openrouter | vllm "
+            f"(default from .env: {cfg.provider})"
+        ),
     )
     parser.add_argument(
         "--model",
@@ -145,20 +151,13 @@ def show_help():
 def _build_agent(cfg: Config, args) -> tuple[Agent, str, str, str]:
     """Create Agent from config + CLI args. Returns (agent, provider, model, base_url)."""
     provider = args.provider
-
-    if provider == "ollama":
-        base_url = args.url or cfg.ollama_base_url
-        model = args.model or cfg.ollama_model
-    else:
-        base_url = args.url or cfg.openai_base_url
-        model = args.model or cfg.openai_model
+    base_url = args.url or cfg.openai_base_url
+    model = args.model or cfg.openai_model
 
     api_key = args.api_key or cfg.openai_api_key
 
     client = create_client(
         provider,
-        ollama_base_url=base_url,
-        ollama_model=model,
         openai_base_url=base_url,
         openai_model=model,
         openai_api_key=api_key,
@@ -174,11 +173,20 @@ def _build_agent(cfg: Config, args) -> tuple[Agent, str, str, str]:
         console.print(f"[bold yellow]Warning:[/] Model '{model}' not found on server.")
         console.print(f"Available: {', '.join(models[:15])}")
 
-    skill_manager = SkillManager(skills_dir=args.skills_dir, mcp_servers=cfg.mcp_servers)
+    skill_manager = SkillManager(
+        skills_dir=args.skills_dir,
+        max_reference_file_bytes=cfg.reference_file_max_bytes,
+        max_reference_total_bytes=cfg.reference_files_total_max_bytes,
+    )
+    session_store = InMemorySessionStore(
+        ttl_seconds=cfg.session_ttl_seconds,
+        max_messages=cfg.session_max_messages,
+    )
     agent = Agent(
         client=client,
         skill_manager=skill_manager,
         temperature=cfg.temperature,
+        session_store=session_store,
     )
     return agent, provider, model, base_url
 
