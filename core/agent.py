@@ -432,7 +432,11 @@ class Agent:
             )
 
         if func_name == "load_skill":
-            return self._handle_load_skill(session, args.get("skill_name", "")), False
+            try:
+                return self._handle_load_skill(session, args.get("skill_name", "")), False
+            except Exception as e:
+                logger.exception("Failed to load skill '%s': %s", args.get("skill_name", ""), e)
+                return f"Error loading skill '{args.get('skill_name', '')}': {e}", False
 
         if func_name == "create_new_skill":
             return self._handle_create_skill(args), False
