@@ -28,11 +28,14 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import uuid
 from abc import ABC, abstractmethod
 from typing import Optional
 
 import requests
+
+from .metrics import get_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -110,16 +113,32 @@ class OpenAIClient(LLMClient):
             "OpenAI request: model=%s, messages=%d, tools=%d",
             self.model, len(messages), len(tools or []),
         )
-        resp = requests.post(
-            f"{self.base_url}/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=self.timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        start_ts = time.perf_counter()
+        status = "ok"
+        usage: dict | None = None
+        try:
+            resp = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            usage = data.get("usage", {})
+        except Exception:
+            status = "error"
+            get_metrics().observe_error("llm_client")
+            raise
+        finally:
+            get_metrics().observe_llm_request(
+                provider="openai_compat",
+                model=self.model,
+                duration_seconds=time.perf_counter() - start_ts,
+                status=status,
+                usage=usage,
+            )
 
-        usage = data.get("usage", {})
         if usage:
             logger.debug(
                 "OpenAI usage: prompt_tokens=%s, completion_tokens=%s, total=%s",
@@ -139,7 +158,8 @@ class OpenAIClient(LLMClient):
                 "role": msg.get("role", "assistant"),
                 "content": msg.get("content") or "",
                 "tool_calls": normalised_tcs,
-            }
+            },
+            "usage": usage or {},
         }
 
     def list_models(self):

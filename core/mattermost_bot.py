@@ -267,6 +267,7 @@ class MattermostBot:
                 self.agent.chat,
                 user_input,
                 session_id,
+                {"source": "mattermost"},
             )
 
             response = _THINK_RE.sub("", response).strip()

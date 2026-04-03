@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from .metrics import get_metrics
 from .skill_manager import Skill
 
 
@@ -35,6 +36,7 @@ class InMemorySessionStore:
             else max(1, int(max_messages))
         )
         self._sessions: dict[str, SessionData] = {}
+        get_metrics().set_active_sessions(0)
 
     def get_or_create(self, session_id: str) -> SessionData:
         self._prune_expired()
@@ -42,6 +44,7 @@ class InMemorySessionStore:
         if session is None:
             session = SessionData(session_id=session_id)
             self._sessions[session_id] = session
+            get_metrics().set_active_sessions(len(self._sessions))
         return session
 
     def save(self, session: SessionData) -> None:
@@ -49,9 +52,11 @@ class InMemorySessionStore:
         if self.max_messages > 0 and len(session.messages) > self.max_messages:
             session.messages = session.messages[-self.max_messages :]
         self._sessions[session.session_id] = session
+        get_metrics().set_active_sessions(len(self._sessions))
 
     def reset(self, session_id: str) -> None:
         self._sessions.pop(session_id, None)
+        get_metrics().set_active_sessions(len(self._sessions))
 
     def _prune_expired(self) -> None:
         if self.ttl_seconds <= 0:
@@ -64,3 +69,5 @@ class InMemorySessionStore:
         ]
         for sid in expired:
             self._sessions.pop(sid, None)
+        if expired:
+            get_metrics().set_active_sessions(len(self._sessions))

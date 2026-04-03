@@ -16,6 +16,7 @@ ROMAN — это AI-агент на Python с динамической сист�
 - хранение состояния диалога между сообщениями
 - ограничение размера reference-файлов для skills
 - подключение специализированных инструментов без изменения ядра агента
+- встроенные Prometheus-метрики (LLM usage, токены, latency, uptime)
 
 ## Как это работает
 
@@ -94,6 +95,10 @@ SESSION_TTL_SECONDS=3600
 SESSION_MAX_MESSAGES=100
 REFERENCE_FILE_MAX_BYTES=32768
 REFERENCE_FILES_TOTAL_MAX_BYTES=262144
+
+PROMETHEUS_METRICS_ENABLED=true
+PROMETHEUS_METRICS_HOST=0.0.0.0
+PROMETHEUS_METRICS_PORT=9108
 ```
 
 ### Mattermost
@@ -425,6 +430,38 @@ agent_debug.log
 ```
 
 Это полезно для разбора ошибок tool-calling, проблем с моделью и отладки skills.
+
+## Prometheus метрики и Grafana
+
+Агент поднимает endpoint метрик в формате Prometheus через встроенный HTTP-сервер:
+
+- URL: `http://<host>:<PROMETHEUS_METRICS_PORT>/metrics`
+- по умолчанию: `http://0.0.0.0:9108/metrics`
+
+### Ключевые метрики
+
+- `roman_agent_user_response_tokens_total` — сколько токенов ушло на финальные ответы пользователям
+- `roman_agent_llm_tokens_total{token_type="total"}` — суммарные токены за все время работы процесса
+- `roman_agent_uptime_seconds` — аптайм процесса
+- `roman_agent_user_response_duration_seconds` — время ответа пользователю (end-to-end)
+- `roman_agent_llm_request_duration_seconds` — latency запросов к LLM API
+- `roman_agent_llm_requests_total` — количество запросов к LLM (ok/error)
+- `roman_agent_tool_calls_total` — статистика вызовов инструментов
+- `roman_agent_active_sessions` — активные сессии в памяти
+- `roman_agent_errors_total` — ошибки по компонентам
+
+### Дашборд Grafana
+
+Готовый dashboard JSON уже добавлен в репозиторий:
+
+- `grafana-roman-agent-dashboard.json`
+
+Импорт:
+
+1. В Grafana: **Dashboards -> New -> Import**
+2. Загрузить файл `grafana-roman-agent-dashboard.json`
+3. Выбрать Prometheus datasource
+4. Использовать фильтры `provider`, `model`, `source`
 
 ## Возможные проблемы
 

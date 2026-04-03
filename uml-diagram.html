@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ROMAN UML Diagram</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #09121c;
+        --panel: rgba(14, 27, 42, 0.86);
+        --panel-strong: rgba(8, 19, 31, 0.96);
+        --text: #ebf2ff;
+        --muted: #98adc9;
+        --accent: #66f0ff;
+        --accent-2: #8cff9d;
+        --accent-3: #ffc96b;
+        --grid: rgba(102, 240, 255, 0.1);
+        --border: rgba(102, 240, 255, 0.22);
+        --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Source Sans 3", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(102, 240, 255, 0.18), transparent 30%),
+          radial-gradient(circle at top right, rgba(140, 255, 157, 0.12), transparent 28%),
+          linear-gradient(180deg, #060b11 0%, #09121c 52%, #081018 100%);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.85), transparent 96%);
+      }
+
+      .wrap {
+        width: min(1400px, calc(100vw - 40px));
+        margin: 0 auto;
+        padding: 44px 0 64px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 14px;
+        margin-bottom: 30px;
+      }
+
+      .kicker {
+        font-family: "Orbitron", sans-serif;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-size: 12px;
+      }
+
+      h1 {
+        margin: 0;
+        font-family: "Orbitron", sans-serif;
+        font-size: clamp(32px, 5vw, 64px);
+        line-height: 0.95;
+        letter-spacing: 0.03em;
+      }
+
+      .lead {
+        max-width: 960px;
+        color: var(--muted);
+        font-size: 19px;
+        line-height: 1.5;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin: 20px 0 36px;
+      }
+
+      .card {
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(16, 31, 49, 0.9), rgba(8, 17, 28, 0.9));
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .card strong {
+        display: block;
+        font-family: "Orbitron", sans-serif;
+        color: var(--accent-2);
+        margin-bottom: 8px;
+        font-size: 14px;
+        text-transform: uppercase;
+      }
+
+      .card span {
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .section {
+        position: relative;
+        margin: 28px 0;
+        padding: 22px;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, var(--panel), var(--panel-strong));
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .section::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 180px;
+        height: 180px;
+        background: radial-gradient(circle, rgba(255, 201, 107, 0.13), transparent 70%);
+        pointer-events: none;
+      }
+
+      .section h2 {
+        margin: 0 0 8px;
+        font-family: "Orbitron", sans-serif;
+        font-size: 20px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .section p {
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .diagram {
+        overflow: auto;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        padding-top: 12px;
+      }
+
+      .mermaid {
+        min-width: 950px;
+      }
+
+      .footer-note {
+        margin-top: 24px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <div class="kicker">ROMAN Architecture</div>
+        <h1>UML Diagram</h1>
+        <div class="lead">
+          Visual overview of the ROMAN application: startup composition, the core
+          agent loop, dynamic skill loading, and the two entry flows through CLI
+          and Mattermost bot mode.
+        </div>
+      </section>
+
+      <section class="cards">
+        <div class="card">
+          <strong>Entry Points</strong>
+          <span>`main.py` starts either interactive CLI mode or Mattermost bot mode.</span>
+        </div>
+        <div class="card">
+          <strong>Core Engine</strong>
+          <span>`Agent` builds prompts, talks to the LLM, runs tools, and stores session state.</span>
+        </div>
+        <div class="card">
+          <strong>Dynamic Skills</strong>
+          <span>`SkillManager` discovers skills from `SKILL.md` and loads tools on demand.</span>
+        </div>
+        <div class="card">
+          <strong>External Systems</strong>
+          <span>The app depends on an OpenAI-compatible API, Mattermost, and optional skill backends.</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Component Diagram</h2>
+        <p>Static structure of the main classes and runtime relationships.</p>
+        <div class="diagram">
+          <pre class="mermaid">
+classDiagram
+direction LR
+
+class Main {
+  +main()
+  +run_cli()
+  +run_bot()
+  +_build_agent()
+}
+
+class Config {
+  +provider
+  +openai_base_url
+  +openai_model
+  +openai_api_key
+  +openai_timeout_seconds
+  +temperature
+  +skills_dir
+  +session_ttl_seconds
+  +session_max_messages
+  +reference limits
+  +load()
+}
+
+class MattermostConfig {
+  +url
+  +token
+  +team
+  +channel
+  +bot_name
+  +thread_history_depth
+}
+
+class Agent {
+  +chat(user_message, session_id, metadata)
+  +reset(session_id)
+  +get_active_skills(session_id)
+  +get_last_tool_calls(session_id)
+  -_run_loop(session)
+  -_build_system_prompt(session)
+  -_collect_tools(session)
+  -_execute_tool(session, tool_call)
+  -_handle_load_skill(session, skill_name)
+}
+
+class LLMClient {
+  <<abstract>>
+  +chat(messages, tools, temperature)
+  +list_models()
+  +is_available()
+}
+
+class OpenAIClient {
+  +base_url
+  +model
+  +api_key
+  +timeout
+}
+
+class SkillManager {
+  +skills
+  +load_skill(name)
+  +get_skill_names()
+  -_discover()
+  -_load_tools()
+  -_load_references()
+}
+
+class Skill {
+  +name
+  +description
+  +path
+  +instructions
+  +extra_files
+  +tools
+  +loaded
+}
+
+class SkillTool {
+  +name
+  +description
+  +parameters
+  +function
+}
+
+class InMemorySessionStore {
+  +get_or_create(session_id)
+  +save(session)
+  +reset(session_id)
+}
+
+class SessionData {
+  +session_id
+  +messages
+  +active_skills
+  +session_state
+}
+
+class MattermostBot {
+  +run()
+  -_make_event_handler()
+  -_process_and_reply()
+  -_prepare_input_with_thread_history()
+}
+
+Main --> Config : loads
+Config --> MattermostConfig : contains
+Main --> Agent : builds
+Main --> MattermostBot : starts in bot mode
+Agent --> LLMClient : uses
+OpenAIClient --|> LLMClient
+Agent --> SkillManager : manages skills
+Agent --> InMemorySessionStore : manages sessions
+InMemorySessionStore --> SessionData : stores
+SkillManager --> Skill : discovers / loads
+Skill --> SkillTool : exposes
+MattermostBot --> Agent : forwards messages
+          </pre>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>CLI Sequence</h2>
+        <p>How a user message moves through the terminal interface and the agent loop.</p>
+        <div class="diagram">
+          <pre class="mermaid">
+sequenceDiagram
+autonumber
+actor User
+participant CLI as main.py / run_cli()
+participant Agent
+participant Sessions as InMemorySessionStore
+participant Skills as SkillManager
+participant LLM as OpenAIClient
+participant Tool as Skill Tool
+
+User->>CLI: Enter message
+CLI->>Agent: chat(user_input, session_id)
+Agent->>Sessions: get_or_create(session_id)
+
+loop up to MAX_TOOL_ROUNDS
+  Agent->>Agent: _build_system_prompt()
+  Agent->>Agent: _collect_tools()
+  Agent->>LLM: chat(messages, tools, temperature)
+
+  alt LLM returns tool_calls
+    LLM-->>Agent: tool calls
+    alt load_skill requested
+      Agent->>Skills: load_skill(skill_name)
+      Skills-->>Agent: instructions + tools + references
+    else collect_context requested
+      Agent->>Agent: normalize request / detect missing fields
+    else skill tool requested
+      Agent->>Tool: execute(**args)
+      Tool-->>Agent: result
+    end
+  else LLM returns final content
+    LLM-->>Agent: final response
+    Agent->>Sessions: save(session)
+    Agent-->>CLI: response text
+  end
+end
+
+CLI-->>User: Render markdown/text reply
+          </pre>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Bot Sequence</h2>
+        <p>How Mattermost events are filtered, converted to agent input, and posted back to the thread.</p>
+        <div class="diagram">
+          <pre class="mermaid">
+sequenceDiagram
+autonumber
+actor User
+participant MM as Mattermost
+participant Bot as MattermostBot
+participant Agent
+participant Sessions as InMemorySessionStore
+participant LLM as OpenAIClient
+participant Tool as Skill Tool
+
+User->>MM: Post message in configured channel
+MM-->>Bot: WebSocket "posted" event
+Bot->>Bot: Filter by channel / ignore own messages
+Bot->>Bot: Check mention or active thread
+Bot->>Bot: Build session_id from root_id
+Bot->>Agent: chat(message_text, session_id, metadata)
+Agent->>Sessions: get_or_create(session_id)
+
+loop tool-calling conversation
+  Agent->>LLM: chat(messages, tools, temperature)
+  alt tool calls
+    LLM-->>Agent: tool calls
+    alt dynamic skill loading
+      Agent->>Tool: execute load_skill / collect_context / skill tool
+      Tool-->>Agent: result
+    end
+  else final response
+    LLM-->>Agent: final text
+  end
+end
+
+Agent->>Sessions: save(session)
+Bot->>MM: Post reply into thread
+MM-->>User: Thread response visible
+          </pre>
+        </div>
+      </section>
+
+      <div class="footer-note">
+        Mermaid diagrams are based on the current implementation in `main.py`,
+        `core/agent.py`, `core/skill_manager.py`, `core/llm_client.py`,
+        `core/session_store.py`, and `core/mattermost_bot.py`.
+      </div>
+    </main>
+
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: "base",
+        securityLevel: "loose",
+        themeVariables: {
+          background: "#0b1622",
+          primaryColor: "#10273b",
+          primaryTextColor: "#ebf2ff",
+          primaryBorderColor: "#66f0ff",
+          lineColor: "#66f0ff",
+          secondaryColor: "#0f2030",
+          tertiaryColor: "#132b3f",
+          actorBorder: "#8cff9d",
+          actorBkg: "#102131",
+          actorTextColor: "#ebf2ff",
+          signalColor: "#66f0ff",
+          signalTextColor: "#ebf2ff",
+          labelBoxBkgColor: "#112638",
+          labelBoxBorderColor: "#ffc96b",
+          labelTextColor: "#ebf2ff",
+          noteBkgColor: "#1d2f1e",
+          noteBorderColor: "#8cff9d",
+          noteTextColor: "#ebf2ff",
+          activationBorderColor: "#ffc96b",
+          activationBkgColor: "#173149",
+          classText: "#ebf2ff"
+        }
+      });
+    </script>
+  </body>
+</html>

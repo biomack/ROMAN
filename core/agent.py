@@ -12,8 +12,10 @@ Flow:
 import json
 import logging
 import re
+import time
 
 from .llm_client import LLMClient
+from .metrics import get_metrics
 from .skill_manager import SkillManager, Skill
 from .session_store import InMemorySessionStore, SessionData
 
@@ -60,15 +62,38 @@ class Agent:
     # ------------------------------------------------------------------
 
     def chat(self, user_message: str, session_id: str = "default", metadata: dict | None = None) -> str:
+        started_at = time.perf_counter()
+        source = self._resolve_source(session_id=session_id, metadata=metadata)
         session = self.sessions.get_or_create(session_id)
         session.messages.append({"role": "user", "content": user_message})
         session.session_state["last_metadata"] = metadata or {}
         session.session_state["context_collected_for_turn"] = False
         session.session_state["last_tool_calls"] = []
         session.session_state["empty_vl_query_streak"] = 0
-        response = self._run_loop(session)
-        self.sessions.save(session)
-        return response
+        session.session_state["last_turn_total_tokens"] = 0
+        session.session_state["last_turn_user_response_tokens"] = 0
+
+        status = "ok"
+        try:
+            response = self._run_loop(session)
+            return response
+        except Exception:
+            status = "error"
+            get_metrics().observe_error("agent_chat")
+            raise
+        finally:
+            self.sessions.save(session)
+            get_metrics().observe_user_turn(
+                source=source,
+                status=status,
+                duration_seconds=time.perf_counter() - started_at,
+                turn_total_tokens=self._safe_int(
+                    session.session_state.get("last_turn_total_tokens", 0)
+                ),
+                user_response_tokens=self._safe_int(
+                    session.session_state.get("last_turn_user_response_tokens", 0)
+                ),
+            )
 
     def reset(self, session_id: str = "default"):
         self.sessions.reset(session_id)
@@ -87,6 +112,8 @@ class Agent:
     # ------------------------------------------------------------------
 
     def _run_loop(self, session: SessionData) -> str:
+        session.session_state["last_turn_total_tokens"] = 0
+        session.session_state["last_turn_user_response_tokens"] = 0
         empty_final_retries = 0
         for round_num in range(MAX_TOOL_ROUNDS):
             tools = self._collect_tools(session)
@@ -111,6 +138,12 @@ class Agent:
                 messages=[{"role": "system", "content": system}] + session.messages,
                 tools=tools,
                 temperature=self.temperature,
+            )
+            usage = response.get("usage") or {}
+            completion_tokens = self._safe_int(usage.get("completion_tokens"))
+            session.session_state["last_turn_total_tokens"] = (
+                self._safe_int(session.session_state.get("last_turn_total_tokens", 0))
+                + self._safe_int(usage.get("total_tokens"))
             )
             msg = response.get("message", {})
 
@@ -157,11 +190,13 @@ class Agent:
                             "Stopping loop: repeated empty tool result for %s", fn_name
                         )
                         session.messages.append({"role": "assistant", "content": repeated_stop})
+                        session.session_state["last_turn_user_response_tokens"] = 0
                         return repeated_stop
                     if should_stop:
                         question = self._extract_clarifying_question(result)
                         logger.info("Stopping loop: clarification needed — %s", question[:300])
                         session.messages.append({"role": "assistant", "content": question})
+                        session.session_state["last_turn_user_response_tokens"] = completion_tokens
                         return question
             else:
                 content = msg.get("content", "")
@@ -191,13 +226,16 @@ class Agent:
                         "LLM returned empty final response after retries; using fallback text"
                     )
                     session.messages.append({"role": "assistant", "content": fallback})
+                    session.session_state["last_turn_user_response_tokens"] = completion_tokens
                     return fallback
 
                 logger.info("LLM final response (len=%d): %s", len(content), content[:500])
                 session.messages.append({"role": "assistant", "content": content})
+                session.session_state["last_turn_user_response_tokens"] = completion_tokens
                 return content
 
         logger.warning("Agent reached MAX_TOOL_ROUNDS=%d without final answer", MAX_TOOL_ROUNDS)
+        session.session_state["last_turn_user_response_tokens"] = 0
         return "[Agent reached maximum tool-call rounds]"
 
     def _handle_repeated_empty_tool_result(
@@ -425,6 +463,7 @@ class Agent:
             and func_name not in {"collect_context", "load_skill", "create_new_skill"}
             and not session.session_state.get("context_collected_for_turn")
         ):
+            get_metrics().observe_tool_call(func_name, "blocked")
             return (
                 "Workflow requires `collect_context` first. "
                 "Call collect_context with the latest user text before other tools.",
@@ -433,13 +472,24 @@ class Agent:
 
         if func_name == "load_skill":
             try:
-                return self._handle_load_skill(session, args.get("skill_name", "")), False
+                result = self._handle_load_skill(session, args.get("skill_name", ""))
+                get_metrics().observe_tool_call(func_name, "ok")
+                return result, False
             except Exception as e:
                 logger.exception("Failed to load skill '%s': %s", args.get("skill_name", ""), e)
+                get_metrics().observe_tool_call(func_name, "error")
+                get_metrics().observe_error("tool_load_skill")
                 return f"Error loading skill '{args.get('skill_name', '')}': {e}", False
 
         if func_name == "create_new_skill":
-            return self._handle_create_skill(args), False
+            try:
+                result = self._handle_create_skill(args)
+                get_metrics().observe_tool_call(func_name, "ok")
+                return result, False
+            except Exception as e:
+                get_metrics().observe_tool_call(func_name, "error")
+                get_metrics().observe_error("tool_create_skill")
+                return f"Error in {func_name}: {e}", False
 
         if func_name == "collect_context":
             text = args.get("text", "")
@@ -453,24 +503,48 @@ class Agent:
                 metadata=metadata,
             )
             session.session_state["context_collected_for_turn"] = True
+            get_metrics().observe_tool_call(func_name, "ok")
             return result, self._has_missing_fields(result)
 
         for skill in session.active_skills.values():
             for tool in skill.tools:
                 if tool.name == func_name:
                     try:
-                        return str(tool.function(**args)), False
+                        result = str(tool.function(**args))
+                        get_metrics().observe_tool_call(func_name, "ok")
+                        return result, False
                     except Exception as e:
+                        get_metrics().observe_tool_call(func_name, "error")
+                        get_metrics().observe_error("skill_tool")
                         return f"Error in {func_name}: {e}", False
 
         if func_name in self.skills.skills:
             load_result = self._handle_load_skill(session, func_name)
+            get_metrics().observe_tool_call(func_name, "auto_load")
             return (
                 f"Auto-loaded skill '{func_name}'. {load_result}\n"
                 f"Now call the skill's specific tools (not the skill name)."
             ), False
 
+        get_metrics().observe_tool_call(func_name, "unknown")
         return f"Unknown tool: {func_name}", False
+
+    @staticmethod
+    def _safe_int(value: object) -> int:
+        try:
+            return max(0, int(value or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _resolve_source(session_id: str, metadata: dict | None) -> str:
+        if isinstance(metadata, dict):
+            source = metadata.get("source")
+            if isinstance(source, str) and source.strip():
+                return source.strip().lower()
+        if str(session_id).startswith("mm-"):
+            return "mattermost"
+        return "cli"
 
     def _handle_load_skill(self, session: SessionData, skill_name: str) -> str:
         logger.info("Loading skill '%s'...", skill_name)

@@ -9,3 +9,4 @@ openai>=2.3.0
 netbox
 faiss-cpu
 sentence-transformers
+prometheus-client>=0.20.0

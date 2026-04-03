@@ -37,6 +37,7 @@ from core import (
     MattermostBot,
     create_client,
 )
+from core.metrics import get_metrics
 
 LOG_FILE = Path(__file__).parent / "agent_debug.log"
 
@@ -221,7 +222,8 @@ def run_bot(cfg: Config, args):
         f"Provider: [cyan]{provider}[/]  |  Model: [cyan]{model}[/]\n"
         f"Server:   [cyan]{base_url}[/]\n"
         f"Channel:  [cyan]{mm_team}/{mm_channel}[/] @ {mm_url}\n"
-        f"Thread history depth: [cyan]{mm_thread_history_depth}[/]",
+        f"Thread history depth: [cyan]{mm_thread_history_depth}[/]\n"
+        f"Prometheus: [cyan]{'enabled' if cfg.metrics_enabled else 'disabled'}[/]",
         title="Mattermost Bot",
         border_style="bright_green",
     ))
@@ -254,7 +256,8 @@ def run_cli(cfg: Config, args):
     console.print(Panel(
         f"[bold]Agent Skills[/] — AI agent\n"
         f"Provider: [cyan]{provider}[/]  |  Model: [cyan]{model}[/]\n"
-        f"Server:   [cyan]{base_url}[/]",
+        f"Server:   [cyan]{base_url}[/]\n"
+        f"Prometheus: [cyan]{'enabled' if cfg.metrics_enabled else 'disabled'}[/]",
         title="Skills Agent",
         border_style="bright_blue",
     ))
@@ -308,7 +311,11 @@ def run_cli(cfg: Config, args):
 
         with console.status("[bold cyan]Thinking...", spinner="dots"):
             try:
-                response = agent.chat(user_input, session_id=session_id)
+                response = agent.chat(
+                    user_input,
+                    session_id=session_id,
+                    metadata={"source": "cli"},
+                )
             except Exception as e:
                 console.print(f"[bold red]Error:[/] {e}")
                 continue
@@ -323,6 +330,16 @@ def run_cli(cfg: Config, args):
 
 def main():
     cfg = Config.load()
+    if cfg.metrics_enabled:
+        try:
+            get_metrics().start_server(cfg.metrics_host, cfg.metrics_port)
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "Failed to start Prometheus metrics server on %s:%s: %s",
+                cfg.metrics_host,
+                cfg.metrics_port,
+                exc,
+            )
     args = parse_args(cfg)
 
     if args.mode == "bot":

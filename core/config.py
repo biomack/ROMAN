@@ -11,6 +11,13 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
 @dataclass
 class MattermostConfig:
     url: str
@@ -46,6 +53,9 @@ class Config:
     session_max_messages: int
     reference_file_max_bytes: int
     reference_files_total_max_bytes: int
+    metrics_enabled: bool
+    metrics_host: str
+    metrics_port: int
     mattermost: MattermostConfig
 
     @classmethod
@@ -66,5 +76,8 @@ class Config:
             reference_files_total_max_bytes=int(
                 os.getenv("REFERENCE_FILES_TOTAL_MAX_BYTES", "262144")
             ),
+            metrics_enabled=_env_bool("PROMETHEUS_METRICS_ENABLED", True),
+            metrics_host=os.getenv("PROMETHEUS_METRICS_HOST", "0.0.0.0").strip(),
+            metrics_port=int(os.getenv("PROMETHEUS_METRICS_PORT", "9108")),
             mattermost=MattermostConfig.from_env(),
         )
