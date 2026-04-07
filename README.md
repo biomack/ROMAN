@@ -23,7 +23,9 @@ ROMAN — это AI-агент на Python с динамической сист�
 При старте агент:
 
 1. Загружает конфигурацию из `.env`
-2. Сканирует каталог `skills/`
+2. Подготавливает skills source:
+   - `SKILLS_SOURCE_TYPE=local` -> читает локальный каталог (`SKILLS_DIR`, по умолчанию `skills`)
+   - `SKILLS_SOURCE_TYPE=git` -> клонирует git-репозиторий skills в локальную директорию и использует ее
 3. Читает только метаданные skills из `SKILL.md`
 4. Передает модели каталог доступных skills
 5. При необходимости модель вызывает `load_skill`
@@ -89,7 +91,12 @@ OPENAI_API_KEY=lm-studio
 OPENAI_TIMEOUT_SECONDS=1200
 
 LLM_TEMPERATURE=0.4
+SKILLS_SOURCE_TYPE=local
 SKILLS_DIR=skills
+SKILLS_GIT_URL=
+SKILLS_GIT_BRANCH=main
+SKILLS_GIT_REF=
+SKILLS_GIT_CLONE_DIR=.cache/skills-git
 
 SESSION_TTL_SECONDS=3600
 SESSION_MAX_MESSAGES=100
@@ -100,6 +107,15 @@ PROMETHEUS_METRICS_ENABLED=true
 PROMETHEUS_METRICS_HOST=0.0.0.0
 PROMETHEUS_METRICS_PORT=9108
 ```
+
+Переменные для источника skills:
+
+- `SKILLS_SOURCE_TYPE` — `local` (по умолчанию) или `git`
+- `SKILLS_DIR` — локальный каталог skills (актуально для `local`)
+- `SKILLS_GIT_URL` — URL git-репозитория со skills (обязателен для `git`)
+- `SKILLS_GIT_BRANCH` — ветка для clone (по умолчанию `main`, игнорируется если задан `SKILLS_GIT_REF`)
+- `SKILLS_GIT_REF` — commit/tag/branch для checkout после clone
+- `SKILLS_GIT_CLONE_DIR` — локальный путь, куда клонируется repo (по умолчанию `.cache/skills-git`)
 
 ### Mattermost
 

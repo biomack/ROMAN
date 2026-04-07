@@ -22,6 +22,8 @@ import argparse
 import logging
 import uuid
 import sys
+import shutil
+import subprocess
 from pathlib import Path
 
 from rich.console import Console
@@ -57,6 +59,7 @@ def _setup_logging():
 _setup_logging()
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 def parse_args(cfg: Config):
     parser = argparse.ArgumentParser(
@@ -149,6 +152,68 @@ def show_help():
     console.print(Panel(help_text, title="Help", border_style="blue"))
 
 
+def _sync_skills_from_git(cfg: Config) -> str:
+    if not cfg.skills_git_url:
+        raise RuntimeError(
+            "SKILLS_SOURCE_TYPE=git requires SKILLS_GIT_URL."
+        )
+
+    clone_dir = Path(cfg.skills_git_clone_dir).expanduser().resolve()
+    clone_dir.parent.mkdir(parents=True, exist_ok=True)
+
+    if clone_dir.exists():
+        shutil.rmtree(clone_dir)
+
+    clone_cmd = ["git", "clone"]
+    if not cfg.skills_git_ref:
+        clone_cmd.extend(["--depth", "1"])
+        if cfg.skills_git_branch:
+            clone_cmd.extend(["--branch", cfg.skills_git_branch])
+    clone_cmd.extend([cfg.skills_git_url, str(clone_dir)])
+
+    try:
+        subprocess.run(clone_cmd, check=True, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        raise RuntimeError("git is not installed in runtime environment.") from exc
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"Failed to clone skills repo: {exc.stderr.strip() or exc.stdout.strip()}"
+        ) from exc
+
+    if cfg.skills_git_ref:
+        try:
+            subprocess.run(
+                ["git", "-C", str(clone_dir), "checkout", cfg.skills_git_ref],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(
+                f"Failed to checkout SKILLS_GIT_REF='{cfg.skills_git_ref}': "
+                f"{exc.stderr.strip() or exc.stdout.strip()}"
+            ) from exc
+
+    return str(clone_dir)
+
+
+def _prepare_skills_dir(cfg: Config, args) -> str:
+    source_type = (cfg.skills_source_type or "local").strip().lower()
+
+    if source_type == "local":
+        return (args.skills_dir or cfg.skills_dir or "skills").strip() or "skills"
+
+    if source_type == "git":
+        clone_dir = _sync_skills_from_git(cfg)
+        logger.info("Skills pulled from git into: %s", clone_dir)
+        return clone_dir
+
+    raise RuntimeError(
+        f"Unsupported SKILLS_SOURCE_TYPE='{cfg.skills_source_type}'. "
+        "Allowed values: local, git."
+    )
+
+
 def _build_agent(cfg: Config, args) -> tuple[Agent, str, str, str]:
     """Create Agent from config + CLI args. Returns (agent, provider, model, base_url)."""
     provider = args.provider
@@ -174,8 +239,10 @@ def _build_agent(cfg: Config, args) -> tuple[Agent, str, str, str]:
         console.print(f"[bold yellow]Warning:[/] Model '{model}' not found on server.")
         console.print(f"Available: {', '.join(models[:15])}")
 
+    skills_dir = _prepare_skills_dir(cfg, args)
+
     skill_manager = SkillManager(
-        skills_dir=args.skills_dir,
+        skills_dir=skills_dir,
         max_reference_file_bytes=cfg.reference_file_max_bytes,
         max_reference_total_bytes=cfg.reference_files_total_max_bytes,
     )
@@ -194,7 +261,11 @@ def _build_agent(cfg: Config, args) -> tuple[Agent, str, str, str]:
 
 def run_bot(cfg: Config, args):
     """Start the agent as a Mattermost bot."""
-    agent, provider, model, base_url = _build_agent(cfg, args)
+    try:
+        agent, provider, model, base_url = _build_agent(cfg, args)
+    except RuntimeError as exc:
+        console.print(f"[bold red]Error:[/] {exc}")
+        sys.exit(1)
 
     mm_token = args.mm_token or cfg.mattermost.token
     mm_channel = args.mm_channel or cfg.mattermost.channel
@@ -248,7 +319,11 @@ def run_bot(cfg: Config, args):
 
 def run_cli(cfg: Config, args):
     """Start the interactive CLI chat."""
-    agent, provider, model, base_url = _build_agent(cfg, args)
+    try:
+        agent, provider, model, base_url = _build_agent(cfg, args)
+    except RuntimeError as exc:
+        console.print(f"[bold red]Error:[/] {exc}")
+        sys.exit(1)
 
     session_id = f"cli-{uuid.uuid4().hex[:8]}" if args.new_session_per_run else args.session_id
     skill_manager = agent.skills

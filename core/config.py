@@ -48,7 +48,12 @@ class Config:
     openai_api_key: str
     openai_timeout_seconds: float
     temperature: float
+    skills_source_type: str
     skills_dir: str
+    skills_git_url: str
+    skills_git_branch: str
+    skills_git_ref: str
+    skills_git_clone_dir: str
     session_ttl_seconds: int
     session_max_messages: int
     reference_file_max_bytes: int
@@ -67,7 +72,15 @@ class Config:
             openai_api_key=os.getenv("OPENAI_API_KEY", "lm-studio").strip(),
             openai_timeout_seconds=float(os.getenv("OPENAI_TIMEOUT_SECONDS", "1200")),
             temperature=float(os.getenv("LLM_TEMPERATURE", "0.4")),
-            skills_dir=os.getenv("SKILLS_DIR", "skills").strip(),
+            skills_source_type=os.getenv("SKILLS_SOURCE_TYPE", "local").lower().strip() or "local",
+            skills_dir=os.getenv("SKILLS_DIR", "skills").strip() or "skills",
+            skills_git_url=os.getenv("SKILLS_GIT_URL", "").strip(),
+            skills_git_branch=os.getenv("SKILLS_GIT_BRANCH", "main").strip() or "main",
+            skills_git_ref=os.getenv("SKILLS_GIT_REF", "").strip(),
+            skills_git_clone_dir=(
+                os.getenv("SKILLS_GIT_CLONE_DIR", ".cache/skills-git").strip()
+                or ".cache/skills-git"
+            ),
             session_ttl_seconds=int(os.getenv("SESSION_TTL_SECONDS", "3600")),
             session_max_messages=int(os.getenv("SESSION_MAX_MESSAGES", "100")),
             reference_file_max_bytes=int(
