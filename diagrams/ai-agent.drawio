@@ -1,0 +1,142 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Страница-1" id="aiwXnXrlcHrR9ew4COAp">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="AVNL6JosIbToaR80eNdU-24" parent="1" style="text;html=1;whiteSpace=wrap;overflow=hidden;rounded=0;" value="&lt;h1 style=&quot;margin-top: 0px;&quot;&gt;actions&lt;/h1&gt;&lt;p data-start=&quot;100&quot; data-end=&quot;397&quot;&gt;Набор навыков формируется из отдельных модулей (скиллов), которые загружаются из удалённого репозитория либо подключаются из локальной директории, примонтированной в окружение агента. Каждый такой скилл представляет собой изолированную единицу логики, реализующую конкретное действие или сценарий.&lt;/p&gt;&lt;p data-start=&quot;399&quot; data-end=&quot;837&quot;&gt;Агент выполняет эти навыки в процессе своей работы, используя их как инструменты для взаимодействия с внешними системами. При этом важно, что все конечные точки (endpoints), к которым агент обращается в рамках выполнения навыков — например, для проверки доступности сервера (ping), получения состояния кластера Kubernetes или диагностики конкретного ресурса (pod, node и т.д.) — должны находиться в зоне прямой сетевой доступности агента.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Иными словами, сетевая связность между агентом и целевыми сервисами является обязательным условием корректного выполнения навыков. Если доступ к таким endpoint’ам ограничен (например, из-за сетевых политик, firewall или отсутствия маршрутизации), выполнение соответствующих навыков будет невозможно или приведёт к ошибкам.&lt;/span&gt;&amp;nbsp;&lt;/p&gt;" vertex="1">
+          <mxGeometry height="315" width="700" x="-60" y="1596" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-54" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=24;fontStyle=1;" value="Из каких компонентов состоит агент&amp;nbsp;" vertex="1">
+          <mxGeometry height="30" width="620" x="-60" y="820" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-56" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=8;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;" value="" vertex="1">
+          <mxGeometry height="720" width="900" x="-73" y="860" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-57" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;" value="Точки входа&#xa;CLI&#xa;Чат-бот" vertex="1">
+          <mxGeometry height="120" width="170" x="-3" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-58" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=22;fontStyle=1;" value="AGENT" vertex="1">
+          <mxGeometry height="90" width="220" x="267" y="995" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-59" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;" value="Сессия / контекст&#xa;диалога" vertex="1">
+          <mxGeometry height="90" width="220" x="267" y="1150" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-60" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=16;" value="LLM API&lt;br&gt;OpenAI /&amp;nbsp;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;lama /&lt;/span&gt;&lt;div&gt;LM Studio / etc&lt;/div&gt;" vertex="1">
+          <mxGeometry height="120" width="180" x="607" y="940" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-61" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=18;fontStyle=1;" value="База скиллов" vertex="1">
+          <mxGeometry height="210" width="190" x="7" y="1300" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-62" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=14;" value="Action 1" vertex="1">
+          <mxGeometry height="50" width="140" x="237" y="1320" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-63" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=14;" value="Action 2" vertex="1">
+          <mxGeometry height="50" width="140" x="237" y="1385" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-64" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=14;" value="Action N" vertex="1">
+          <mxGeometry height="50" width="140" x="237" y="1450" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-65" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=16;" value="Целевые endpoints /&lt;br&gt;внешние системы&amp;nbsp;" vertex="1">
+          <mxGeometry height="110" width="180" x="607" y="1320" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-66" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;" value="Важно: база скиллов только хранит набор скиллов и экшенов.&#xa;Экшены выполняет сам агент, когда они ему нужны." vertex="1">
+          <mxGeometry height="90" width="350" x="437" y="1450" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-67" edge="1" parent="1" source="AVNL6JosIbToaR80eNdU-57" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" target="AVNL6JosIbToaR80eNdU-58">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-68" edge="1" parent="1" source="AVNL6JosIbToaR80eNdU-58" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=13;" target="AVNL6JosIbToaR80eNdU-59" value="ведет">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-69" edge="1" parent="1" source="AVNL6JosIbToaR80eNdU-58" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=13;" target="AVNL6JosIbToaR80eNdU-60" value="запросы к модели">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-70" edge="1" parent="1" source="AVNL6JosIbToaR80eNdU-61" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;" target="AVNL6JosIbToaR80eNdU-62">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="210" y="1340" />
+              <mxPoint x="210" y="1340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-71" edge="1" parent="1" source="AVNL6JosIbToaR80eNdU-61" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;" target="AVNL6JosIbToaR80eNdU-63">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="220" y="1410" />
+              <mxPoint x="220" y="1410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-72" edge="1" parent="1" source="AVNL6JosIbToaR80eNdU-61" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;" target="AVNL6JosIbToaR80eNdU-64">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="210" y="1470" />
+              <mxPoint x="210" y="1470" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-73" edge="1" parent="1" source="AVNL6JosIbToaR80eNdU-58" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=13;" target="AVNL6JosIbToaR80eNdU-61" value="читает / загружает">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="197" y="1040" />
+              <mxPoint x="197" y="1385" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-74" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=13;" value="нужен сетевой доступ">
+          <mxGeometry relative="1" x="0.0021" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="540" y="1040" />
+              <mxPoint x="540" y="1375" />
+            </Array>
+            <mxPoint x="490" y="1040" as="sourcePoint" />
+            <mxPoint x="610" y="1375.066666666667" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-75" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=24;fontStyle=1;" value="Как пользователь обращается к агенту" vertex="1">
+          <mxGeometry height="30" width="460" x="930" y="870" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-76" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=14;fontColor=#666666;" value="Два канала входа: напрямую через CLI или через чат в mattermost -бота" vertex="1">
+          <mxGeometry height="24" width="700" x="930" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-77" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=15;" value="Пользователь" vertex="1">
+          <mxGeometry height="90" width="50" x="960" y="1100" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-78" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;" value="CLI" vertex="1">
+          <mxGeometry height="70" width="180" x="1250" y="1010" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-79" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;" value="диалог в канале" vertex="1">
+          <mxGeometry height="70" width="180" x="1250" y="1190" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-80" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=8;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;" value="VM / K8S / localhost" vertex="1">
+          <mxGeometry height="340" width="330" x="1620" y="960" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-81" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=20;fontStyle=1;" value="AGENT" vertex="1">
+          <mxGeometry height="90" width="190" x="1690" y="1085" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-82" edge="1" parent="1" source="AVNL6JosIbToaR80eNdU-77" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" target="AVNL6JosIbToaR80eNdU-78">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1125" y="1045" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-83" edge="1" parent="1" source="AVNL6JosIbToaR80eNdU-77" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=13;" target="AVNL6JosIbToaR80eNdU-79" value="через Mattermost">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1125" y="1225" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-84" edge="1" parent="1" source="AVNL6JosIbToaR80eNdU-78" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" target="AVNL6JosIbToaR80eNdU-81">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="AVNL6JosIbToaR80eNdU-85" edge="1" parent="1" source="AVNL6JosIbToaR80eNdU-79" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" target="AVNL6JosIbToaR80eNdU-81">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

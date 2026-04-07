@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ROMAN User Flow UML</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Unbounded:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #081019;
+        --panel: rgba(16, 28, 41, 0.9);
+        --panel-strong: rgba(10, 18, 28, 0.96);
+        --text: #eef4ff;
+        --muted: #9cb1c7;
+        --accent: #7df9d0;
+        --accent-2: #7cc7ff;
+        --accent-3: #ffd479;
+        --border: rgba(124, 199, 255, 0.22);
+        --grid: rgba(124, 199, 255, 0.08);
+        --shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Manrope", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(125, 249, 208, 0.16), transparent 24%),
+          radial-gradient(circle at top right, rgba(124, 199, 255, 0.16), transparent 30%),
+          linear-gradient(180deg, #050a10 0%, #081019 50%, #060d14 100%);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-size: 42px 42px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent 96%);
+      }
+
+      .wrap {
+        width: min(1380px, calc(100vw - 40px));
+        margin: 0 auto;
+        padding: 42px 0 64px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 28px;
+      }
+
+      .eyebrow {
+        font-family: "Unbounded", sans-serif;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--accent);
+      }
+
+      h1 {
+        margin: 0;
+        font-family: "Unbounded", sans-serif;
+        font-size: clamp(28px, 4.7vw, 56px);
+        line-height: 1.05;
+      }
+
+      .lead {
+        max-width: 980px;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.55;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin: 22px 0 34px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(17, 32, 48, 0.92), rgba(9, 17, 27, 0.92));
+        box-shadow: var(--shadow);
+        padding: 18px 18px 16px;
+      }
+
+      .card strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--accent-2);
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .card span {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .section {
+        position: relative;
+        padding: 24px;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, var(--panel), var(--panel-strong));
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .section::after {
+        content: "";
+        position: absolute;
+        top: -40px;
+        right: -20px;
+        width: 220px;
+        height: 220px;
+        background: radial-gradient(circle, rgba(255, 212, 121, 0.16), transparent 68%);
+        pointer-events: none;
+      }
+
+      .section h2 {
+        margin: 0 0 8px;
+        font-family: "Unbounded", sans-serif;
+        font-size: 20px;
+      }
+
+      .section p {
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.5;
+        max-width: 980px;
+      }
+
+      .diagram {
+        overflow: auto;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding-top: 14px;
+      }
+
+      .mermaid {
+        min-width: 1100px;
+      }
+
+      .note {
+        margin-top: 20px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.55;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <div class="eyebrow">ROMAN / User-Oriented UML</div>
+        <h1>Как работает система целиком</h1>
+        <div class="lead">
+          Эта диаграмма показывает ROMAN глазами пользователя: от момента отправки
+          запроса до получения результата. Она упрощает внутреннюю архитектуру и
+          делает акцент на порядке взаимодействия между основными компонентами.
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <strong>1. Точка входа</strong>
+          <span>Пользователь общается с системой через CLI или через Mattermost.</span>
+        </div>
+        <div class="card">
+          <strong>2. Оркестратор</strong>
+          <span>Агент принимает запрос, собирает контекст сессии и решает, что делать дальше.</span>
+        </div>
+        <div class="card">
+          <strong>3. Модель</strong>
+          <span>LLM анализирует запрос и определяет: можно ответить сразу или нужны инструменты.</span>
+        </div>
+        <div class="card">
+          <strong>4. Навыки и действия</strong>
+          <span>При необходимости агент подгружает скиллы и запускает действия во внешних системах.</span>
+        </div>
+        <div class="card">
+          <strong>5. Результат</strong>
+          <span>Ответ собирается, сохраняется в сессию и возвращается пользователю в исходный канал.</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Общий порядок взаимодействия компонентов</h2>
+        <p>
+          Ниже показан основной рабочий цикл: пользователь отправляет запрос,
+          агент подготавливает контекст, модель принимает решение по следующему
+          шагу, а затем агент либо сразу отвечает, либо использует подходящий
+          навык как инструмент для обращения во внешние системы и формирования
+          итогового ответа.
+        </p>
+        <div class="diagram">
+          <pre class="mermaid">
+sequenceDiagram
+autonumber
+actor User as Пользователь
+participant Entry as CLI / Mattermost
+participant Agent as Агент ROMAN
+participant Session as Хранилище сессии
+participant Skills as Менеджер скиллов
+participant LLM as LLM / OpenAI API
+participant Tools as Навыки и инструменты
+participant Systems as Внешние системы
+
+User->>Entry: Отправляет вопрос или команду
+Entry->>Agent: Передает текст запроса
+Agent->>Session: Получает или создает сессию
+Session-->>Agent: История диалога и состояние
+Agent->>Skills: Собирает доступные навыки
+Skills-->>Agent: Инструкции, инструменты, контекст
+Agent->>LLM: Отправляет запрос вместе с контекстом и списком инструментов
+
+alt Ответ можно дать сразу
+  LLM-->>Agent: Финальный текст ответа
+else Нужны действия или проверки
+  LLM-->>Agent: Запрос на вызов инструмента
+  alt Нужный навык еще не загружен
+    Agent->>Skills: Загружает подходящий скилл
+    Skills-->>Agent: Добавляет новые действия и правила
+  end
+  Agent->>Tools: Выбирает и использует нужный навык
+  Tools-->>Agent: Возвращает логику и параметры действия
+  Agent->>Systems: Выполняет действие через выбранный навык
+  Systems-->>Agent: Возвращает данные или статус
+  Agent->>LLM: Передает результат обратно в модель
+  LLM-->>Agent: Формирует понятный итоговый ответ
+end
+
+Agent->>Session: Сохраняет обновленную сессию
+Agent-->>Entry: Возвращает итоговый ответ
+Entry-->>User: Показывает результат в том же канале
+          </pre>
+        </div>
+        <div class="note">
+          Смысл этой схемы в том, что агент выступает центральным координатором:
+          он не просто отправляет запрос в модель, а управляет контекстом,
+          подключает нужные навыки и сам обращается во внешние системы с их
+          помощью, после чего возвращает пользователю собранный и понятный
+          ответ.
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: "base",
+        securityLevel: "loose",
+        themeVariables: {
+          background: "#0b1622",
+          primaryColor: "#13273a",
+          primaryTextColor: "#eef4ff",
+          primaryBorderColor: "#7cc7ff",
+          lineColor: "#7cc7ff",
+          secondaryColor: "#102131",
+          tertiaryColor: "#173149",
+          actorBorder: "#7df9d0",
+          actorBkg: "#102131",
+          actorTextColor: "#eef4ff",
+          signalColor: "#7cc7ff",
+          signalTextColor: "#eef4ff",
+          labelBoxBkgColor: "#112638",
+          labelBoxBorderColor: "#ffd479",
+          labelTextColor: "#eef4ff",
+          noteBkgColor: "#1c3129",
+          noteBorderColor: "#7df9d0",
+          noteTextColor: "#eef4ff",
+          activationBorderColor: "#ffd479",
+          activationBkgColor: "#173149",
+          classText: "#eef4ff"
+        }
+      });
+    </script>
+  </body>
+</html>
